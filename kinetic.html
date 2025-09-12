@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kinetic Theory & Ideal Gases (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Kinetic Theory & Ideal Gases</h1>
+    <div class="ml-auto text-sm text-slate-300">PV=nRT • Maxwell–Boltzmann • Isothermal/adiabatic</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Moles n</label>
+        <input id="n" type="range" min="0.1" max="5" step="0.1" value="1.0" class="w-full">
+        <div class="text-xs text-slate-300">n = <span id="nVal">1.0</span> mol</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Temperature T (K)</label>
+        <input id="T" type="range" min="100" max="800" step="5" value="300" class="w-full">
+        <div class="text-xs text-slate-300">T = <span id="TVal">300</span> K</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Volume V (L)</label>
+        <input id="V" type="range" min="1" max="100" step="1" value="22" class="w-full">
+        <div class="text-xs text-slate-300">V = <span id="VVal">22</span> L</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Process</label>
+        <select id="proc" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+          <option value="isothermal" selected>Isothermal</option>
+          <option value="adiabatic">Adiabatic (γ=1.4)</option>
+          <option value="isochoric">Isochoric</option>
+          <option value="isobaric">Isobaric</option>
+        </select>
+      </div>
+    </div>
+    <div class="text-xs text-slate-300 leading-6">
+      Ideal gas: PV = nRT. Mean translational KE per molecule = (3/2)kT. RMS speed v_rms = √(3kT/m). Maxwell–Boltzmann shape broadens with T.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="pv" width="1000" height="240" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">Maxwell–Boltzmann speed distribution</div>
+          <canvas id="mb" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+PV = nRT,  R = 8.314 J·mol⁻¹·K⁻¹
+Kinetic theory (monatomic):  U = (3/2) nRT
+Speeds: v_mp=√(2kT/m), v_avg=√(8kT/πm), v_rms=√(3kT/m)
+Adiabatic: PV^γ = const (γ≈1.4 for diatomic)
+Isothermal: PV = const
+</pre>
+        </div>
+      </div>
+      <div id="readouts" class="text-sm font-mono px-2"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const PV = document.getElementById('pv').getContext('2d');
+const MB = document.getElementById('mb').getContext('2d');
+const out = document.getElementById('readouts');
+
+const R = 8.314; const k = 1.380649e-23;
+const st = { n:1.0, T:300, V:22e-3, proc:'isothermal', molarMass:0.028 }; // default N2 (kg/mol)
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('nVal').textContent = st.n.toFixed(1);
+  ids('TVal').textContent = st.T.toFixed(0);
+  ids('VVal').textContent = (st.V*1e3).toFixed(0);
+}
+ids('n').addEventListener('input', e=>{ st.n=+e.target.value; sync(); drawAll(); });
+ids('T').addEventListener('input', e=>{ st.T=+e.target.value; sync(); drawAll(); });
+ids('V').addEventListener('input', e=>{ st.V=(+e.target.value)/1e3; sync(); drawAll(); });
+ids('proc').addEventListener('change', e=>{ st.proc=e.target.value; drawPV(); });
+
+function pressure(n,T,V){ return n*R*T/V; } // Pa
+
+function drawPV(){
+  const W=PV.canvas.width, H=PV.canvas.height;
+  PV.fillStyle="#0f172a"; PV.fillRect(0,0,W,H);
+  PV.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ PV.beginPath(); PV.moveTo(0,y); PV.lineTo(W,y); PV.stroke(); }
+  PV.strokeStyle="rgba(148,163,184,.6)"; PV.beginPath(); PV.moveTo(50,10); PV.lineTo(50,H-40); PV.lineTo(W-20,H-40); PV.stroke();
+  PV.fillStyle="rgba(226,232,240,.9)"; PV.font="12px ui-sans-serif"; PV.fillText("V (L)", W-60, H-14); PV.save(); PV.translate(16, H/2); PV.rotate(-Math.PI/2); PV.fillText("P (kPa)", 0,0); PV.restore();
+
+  // curve
+  PV.strokeStyle="#60a5fa"; PV.lineWidth=2; PV.beginPath(); let first=true;
+  for (let V=1e-3; V<=0.1; V+=0.0008){
+    let P=pressure(st.n, st.T, V);
+    if (st.proc==='adiabatic'){
+      const gamma=1.4; const K = pressure(st.n, st.T, st.V) * Math.pow(st.V, gamma);
+      P = K / Math.pow(V, gamma);
+    } else if (st.proc==='isobaric'){
+      P = pressure(st.n, st.T, st.V); // constant
+    } else if (st.proc==='isochoric'){
+      // vertical line at V=st.V; skip curve
+      continue;
+    }
+    const x = 50 + (V-1e-3)/(0.1-1e-3)*(W-80);
+    const y = (H-40) - (P/2e6)*(H-60); // scale to 0..2 MPa
+    if(first){ PV.moveTo(x,y); first=false; } else PV.lineTo(x,y);
+  }
+  PV.stroke();
+  // isochoric marker
+  if (st.proc==='isochoric'){
+    const x = 50 + (st.V-1e-3)/(0.1-1e-3)*(W-80);
+    PV.strokeStyle="#60a5fa"; PV.setLineDash([5,5]); PV.beginPath(); PV.moveTo(x,10); PV.lineTo(x,H-40); PV.stroke(); PV.setLineDash([]);
+  }
+  // current state marker
+  const x0 = 50 + (st.V-1e-3)/(0.1-1e-3)*(W-80);
+  const y0 = (H-40) - (pressure(st.n, st.T, st.V)/2e6)*(H-60);
+  PV.fillStyle="#fbbf24"; PV.beginPath(); PV.arc(x0,y0,4,0,Math.PI*2); PV.fill();
+
+  const Pnow = pressure(st.n, st.T, st.V)/1000;
+  out.textContent = `P ≈ ${Pnow.toFixed(1)} kPa   n=${st.n} mol   T=${st.T} K   V=${(st.V*1e3).toFixed(1)} L`;
+}
+
+function drawMB(){
+  const W=MB.canvas.width, H=MB.canvas.height;
+  MB.fillStyle="#0f172a"; MB.fillRect(0,0,W,H);
+  MB.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ MB.beginPath(); MB.moveTo(0,y); MB.lineTo(W,y); MB.stroke(); }
+  MB.strokeStyle="rgba(148,163,184,.6)"; MB.beginPath(); MB.moveTo(50,10); MB.lineTo(50,H-40); MB.lineTo(W-20,H-40); MB.stroke();
+  MB.fillStyle="rgba(226,232,240,.9)"; MB.font="12px ui-sans-serif"; MB.fillText("v (m/s)", W-70, H-14); MB.save(); MB.translate(16, H/2); MB.rotate(-Math.PI/2); MB.fillText("f(v) (arb.)", 0,0); MB.restore();
+
+  const m = st.molarMass/6.02214076e23; // kg per molecule
+  const a = m/(2*k*st.T);
+  // plot MB: f(v) ~ v^2 e^{-a v^2}
+  MB.strokeStyle="#34d399"; MB.lineWidth=2; MB.beginPath(); let first=true;
+  const vmax = Math.sqrt(8*k*st.T/ (Math.PI*m)) * 4; // ~4× average
+  for (let v=0; v<=vmax; v+=vmax/400){
+    const f = v*v*Math.exp(-a*v*v);
+    const x = 50 + (v/vmax)*(W-80);
+    const y = (H-40) - (f/(vmax*vmax))* (H-60) * 4;
+    if(first){ MB.moveTo(x,y); first=false; } else MB.lineTo(x,y);
+  }
+  MB.stroke();
+
+  const vrms = Math.sqrt(3*k*st.T/m);
+  const vavg = Math.sqrt(8*k*st.T/(Math.PI*m));
+  const vmp = Math.sqrt(2*k*st.T/m);
+  function xfor(v){ const vmax = Math.sqrt(8*k*st.T/ (Math.PI*m)) * 4; return 50 + (v/vmax)*(W-80); }
+  [[vrms,"v_rms"], [vavg,"v_avg"], [vmp,"v_mp"]].forEach(([v,label],i)=>{
+    const x=xfor(v);
+    MB.strokeStyle="#fbbf24"; MB.setLineDash([4,4]); MB.beginPath(); MB.moveTo(x,10); MB.lineTo(x,H-40); MB.stroke(); MB.setLineDash([]);
+    MB.fillStyle="rgba(226,232,240,.9)"; MB.fillText(`${label}≈${v.toFixed(0)} m/s`, x+6, 16+14*i);
+  });
+}
+
+function drawAll(){ drawPV(); drawMB(); }
+drawAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Photoelectric Effect — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Photoelectric Effect — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">Threshold frequency • Stopping potential • I–V & KE–f</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Frequency f (×10¹⁴ Hz)</label>
+        <input id="f" type="range" min="2" max="12" step="0.1" value="7" class="w-full">
+        <div class="text-xs text-slate-300">f = <span id="fVal">7.0</span>×10¹⁴ Hz</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Intensity (arb.)</label>
+        <input id="I" type="range" min="0" max="10" step="0.1" value="5" class="w-full">
+        <div class="text-xs text-slate-300">I = <span id="IVal">5.0</span></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Work function φ (eV)</label>
+        <input id="phi" type="range" min="1" max="5" step="0.1" value="2.3" class="w-full">
+        <div class="text-xs text-slate-300">φ = <span id="phiVal">2.3</span> eV</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Scan V (− to +)</label>
+        <input id="Vmax" type="range" min="1" max="5" step="0.1" value="3.0" class="w-full">
+        <div class="text-xs text-slate-300">|V|≤ <span id="VmaxVal">3.0</span> V</div>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button id="plotIV" class="btn">Plot I–V</button>
+      <button id="plotKF" class="btn">Plot KE vs f</button>
+    </div>
+    <div class="text-xs text-slate-300 leading-6">
+      Einstein: hf = φ + KE_max  ⇒  stopping potential V_s = KE_max/e. Increasing intensity changes current, not V_s.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="setup" width="1000" height="220" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">I–V curve</div>
+          <canvas id="iv" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">KE_max vs frequency</div>
+          <canvas id="kf" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+      </div>
+      <div class="section p-3">
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Einstein’s photoelectric equation:  KE_max = h f − φ
+Threshold f₀ = φ / h.  Stopping potential V_s = KE_max / e
+For fixed f > f₀, higher intensity ⇒ more electrons (higher I), same V_s.
+Slope of KE vs f is Planck’s constant h (per electron charge if plotting eV).
+</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const S = document.getElementById('setup').getContext('2d');
+const IV = document.getElementById('iv').getContext('2d');
+const KF = document.getElementById('kf').getContext('2d');
+
+const st = { f:7e14, I:5, phi:2.3, Vmax:3.0 };
+const h = 6.62607015e-34, e = 1.602176634e-19;
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('fVal').textContent = (st.f/1e14).toFixed(1);
+  ids('IVal').textContent = st.I.toFixed(1);
+  ids('phiVal').textContent = st.phi.toFixed(1);
+  ids('VmaxVal').textContent = st.Vmax.toFixed(1);
+}
+ids('f').addEventListener('input', e=>{ st.f=(+e.target.value)*1e14; sync(); drawSetup(); });
+ids('I').addEventListener('input', e=>{ st.I=+e.target.value; sync(); drawSetup(); });
+ids('phi').addEventListener('input', e=>{ st.phi=+e.target.value; sync(); drawSetup(); });
+ids('Vmax').addEventListener('input', e=>{ st.Vmax=+e.target.value; sync(); });
+
+document.getElementById('plotIV').addEventListener('click', drawIV);
+document.getElementById('plotKF').addEventListener('click', drawKF);
+
+function KEmax_eV(){ return Math.max(0, (h*st.f/e) - st.phi); } // in eV
+function Vs(){ return KEmax_eV(); } // stopping potential in volts (since 1 eV per e)
+
+function drawSetup(){
+  const c = document.getElementById('setup'); const W=c.width, H=c.height;
+  S.fillStyle="#0f172a"; S.fillRect(0,0,W,H);
+  // cathode/anode
+  S.fillStyle="#60a5fa"; S.fillRect(160,H/2-30,12,60);
+  S.fillStyle="#34d399"; S.fillRect(W-180,H/2-30,12,60);
+  S.fillStyle="rgba(226,232,240,.9)"; S.font="12px ui-sans-serif";
+  S.fillText("Cathode", 130, H/2+50); S.fillText("Anode", W-205, H/2+50);
+  // photons
+  const col = `hsl(${(1-(st.f-2e14)/1e15)*240},90%,60%)`;
+  for (let i=0;i<Math.round(st.I*2)+2;i++){
+    S.strokeStyle=col; S.lineWidth=2; S.beginPath();
+    S.moveTo(100+i*10, 40+i*8); S.lineTo(160, H/2); S.stroke();
+  }
+  // emitted electrons
+  const vscale = Math.sqrt(KEmax_eV()); // crude
+  S.strokeStyle="#fbbf24"; S.lineWidth=2;
+  for (let i=0;i<Math.max(0,Math.round(st.I)); i++){
+    S.beginPath(); S.moveTo(172, H/2 - 20 + i*6); S.lineTo( W-180, H/2 - 20 + i*6 - vscale*5 ); S.stroke();
+  }
+  S.fillText(`KE_max ≈ ${KEmax_eV().toFixed(2)} eV,  V_s ≈ ${Vs().toFixed(2)} V`, 20, 20);
+}
+
+function drawAxes(ctx, W, H, xlabel, ylabel){
+  ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="rgba(148,163,184,.25)"; ctx.lineWidth=1;
+  for (let y=0;y<H;y+=30){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.strokeStyle="rgba(148,163,184,.6)"; ctx.beginPath(); ctx.moveTo(40,10); ctx.lineTo(40,H-30); ctx.lineTo(W-20,H-30); ctx.stroke();
+  ctx.fillStyle="rgba(226,232,240,.9)"; ctx.font="12px ui-sans-serif";
+  ctx.fillText(xlabel, W-50, H-10); ctx.save(); ctx.translate(16, H/2); ctx.rotate(-Math.PI/2); ctx.fillText(ylabel, 0,0); ctx.restore();
+}
+
+function drawIV(){
+  const W=500,H=180; drawAxes(IV, W,H, "V (bias)", "I (arb.)");
+  const Vs = KEmax_eV(); // stopping potential
+  // simple diode-like curve: current ~ intensity for V>-small; cuts off around -Vs
+  const pts=[];
+  for (let V=-st.Vmax; V<=st.Vmax; V+=0.05){
+    let I = 0;
+    if (V > -Vs){ I = st.I * (1 - Math.exp(-(V+Vs))); } // rises as bias goes positive
+    else { I = 0; }
+    pts.push({V,I});
+  }
+  const Imax = Math.max(...pts.map(p=>p.I), 1);
+  function px(v){ return 40 + ((v+st.Vmax)/(2*st.Vmax))*(W-60); }
+  function py(i){ return H-30 - (i/Imax)*(H-60); }
+  IV.strokeStyle="#60a5fa"; IV.lineWidth=2; IV.beginPath();
+  let first=true;
+  for (const p of pts){ const x=px(p.V), y=py(p.I); if(first){IV.moveTo(x,y); first=false;} else { IV.lineTo(x,y);} }
+  IV.stroke();
+  // Vs marker
+  const xs = px(-Vs);
+  IV.strokeStyle="#fbbf24"; IV.setLineDash([4,4]); IV.beginPath(); IV.moveTo(xs,10); IV.lineTo(xs,H-30); IV.stroke(); IV.setLineDash([]);
+  IV.fillStyle="rgba(226,232,240,.9)"; IV.fillText(`V_s ≈ ${Vs.toFixed(2)} V`, xs+6, 16);
+}
+
+function drawKF(){
+  const W=500,H=180; drawAxes(KF, W,H, "f (×10¹⁴ Hz)", "KE_max (eV)");
+  // sweep frequencies and plot KE = hf - phi
+  const pts=[];
+  for (let f=2e14; f<=12e14; f+=0.1e14){
+    pts.push({f: f/1e14, KE: Math.max(0, (h*f/e) - st.phi)});
+  }
+  const KEmax = Math.max(...pts.map(p=>p.KE), 1);
+  function px(ff){ return 40 + ((ff-2)/(10))*(W-60); }
+  function py(ke){ return H-30 - (ke/KEmax)*(H-60); }
+  KF.strokeStyle="#34d399"; KF.lineWidth=2; KF.beginPath();
+  let first=true;
+  for (const p of pts){ const x=px(p.f), y=py(p.KE); if(first){KF.moveTo(x,y); first=false;} else { KF.lineTo(x,y);} }
+  KF.stroke();
+  // threshold f0 marker
+  const f0 = st.phi*e/h/1e14;
+  const xf = px(f0);
+  KF.strokeStyle="#fbbf24"; KF.setLineDash([4,4]); KF.beginPath(); KF.moveTo(xf,10); KF.lineTo(xf,H-30); KF.stroke(); KF.setLineDash([]);
+  KF.fillStyle="rgba(226,232,240,.9)"; KF.fillText(`f₀ ≈ ${f0.toFixed(2)}×10¹⁴ Hz`, xf+6, 16);
+}
+
+drawSetup(); drawIV(); drawKF();
+</script>
+</body>
+</html>

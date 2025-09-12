@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nuclear Binding Energy & Mass Defect (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Nuclear Binding Energy & Mass Defect</h1>
+    <div class="ml-auto text-sm text-slate-300">SEMF trend • BE/A curve • Fusion vs fission</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Mass number A</label>
+        <input id="A" type="range" min="2" max="240" step="1" value="56" class="w-full">
+        <div class="text-xs text-slate-300">A = <span id="AVal">56</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Protons Z</label>
+        <input id="Z" type="range" min="1" max="92" step="1" value="26" class="w-full">
+        <div class="text-xs text-slate-300">Z = <span id="ZVal">26</span></div>
+      </div>
+    </div>
+    <div class="text-xs text-slate-300 leading-6">
+      Binding energy is the energy required to break a nucleus into free nucleons. Mass defect Δm gives BE via E=Δm c².
+      The semi‑empirical mass formula (Weizsäcker) approximates BE(A,Z) and explains the BE/A peak near iron.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="curve" width="1000" height="240" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">SEMF estimate & readouts</div>
+          <div id="readouts" class="text-sm font-mono"></div>
+        </div>
+        <div class="section p-3">
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Semi‑empirical mass formula (one common parameter set):
+  BE(A,Z) = a_v A − a_s A^{2/3} − a_c Z(Z−1)/A^{1/3} − a_a (A−2Z)²/A ± a_p / A^{1/2}
+Where coefficients (MeV): a_v≈15.8, a_s≈18.3, a_c≈0.714, a_a≈23.2, a_p≈12 (pairing term + for even–even, − for odd–odd, 0 otherwise).
+BE per nucleon peaks around A≈56–62 (iron/nickel). Fusion of light nuclei and fission of heavy nuclei both move toward higher BE/A.
+</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const C = document.getElementById('curve').getContext('2d');
+const out = document.getElementById('readouts');
+
+const st = { A:56, Z:26 };
+const coeff = { av:15.8, as:18.3, ac:0.714, aa:23.2, ap:12 };
+
+const ids=s=>document.getElementById(s);
+function sync(){ ids('AVal').textContent=st.A; ids('ZVal').textContent=st.Z; }
+ids('A').addEventListener('input', e=>{ st.A=+e.target.value; if (st.Z>st.A) st.Z=st.A; sync(); drawAll(); });
+ids('Z').addEventListener('input', e=>{ st.Z=+e.target.value; if (st.Z>st.A) st.Z=st.A; sync(); drawAll(); });
+sync();
+
+function pairing(A,Z){
+  const N=A-Z;
+  const evenZ = Z%2===0, evenN = N%2===0;
+  if (evenZ && evenN) return +coeff.ap / Math.sqrt(A);
+  if (!evenZ && !evenN) return -coeff.ap / Math.sqrt(A);
+  return 0;
+}
+function BE(A,Z){
+  const av=coeff.av, as=coeff.as, ac=coeff.ac, aa=coeff.aa;
+  const vol = av*A;
+  const surf = as*Math.pow(A,2/3);
+  const coul = ac*Z*(Z-1)/Math.pow(A,1/3);
+  const asym = aa*Math.pow(A-2*Z,2)/A;
+  const pair = pairing(A,Z);
+  return vol - surf - coul - asym + pair; // MeV
+}
+
+function drawCurve(){
+  const W=C.canvas.width, H=C.canvas.height;
+  C.fillStyle="#0f172a"; C.fillRect(0,0,W,H);
+  C.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ C.beginPath(); C.moveTo(0,y); C.lineTo(W,y); C.stroke(); }
+  C.strokeStyle="rgba(148,163,184,.6)"; C.beginPath(); C.moveTo(50,10); C.lineTo(50,H-40); C.lineTo(W-20,H-40); C.stroke();
+  C.fillStyle="rgba(226,232,240,.9)"; C.font="12px ui-sans-serif"; C.fillText("A", W-40, H-14); C.save(); C.translate(16, H/2); C.rotate(-Math.PI/2); C.fillText("BE/A (MeV)", 0,0); C.restore();
+
+  // BE/A curve over A using most stable Z≈A/(2+0.007A^{2/3}) (approx)
+  const pts=[];
+  for (let A=2; A<=240; A+=1){
+    const Z = Math.round( A/(2 + 0.007*Math.pow(A,2/3)) );
+    const bea = BE(A,Z)/A;
+    pts.push({A, bea});
+  }
+  const maxBEA = Math.max(...pts.map(p=>p.bea));
+  function px(A){ return 50 + (A-2)/(240-2)*(W-80); }
+  function py(bea){ return (H-40) - (bea/maxBEA)*(H-60); }
+  C.strokeStyle="#60a5fa"; C.lineWidth=2; C.beginPath(); let first=true;
+  for (const p of pts){ const x=px(p.A), y=py(p.bea); if(first){ C.moveTo(x,y); first=false;} else C.lineTo(x,y); }
+  C.stroke();
+
+  // highlight chosen nucleus
+  const be = BE(st.A, st.Z); const bea = be/st.A;
+  const xh = px(st.A), yh = py(bea);
+  C.fillStyle="#fbbf24"; C.beginPath(); C.arc(xh,yh,4,0,Math.PI*2); C.fill();
+
+  out.textContent = `A=${st.A}  Z=${st.Z}  N=${st.A-st.Z}  BE≈${be.toFixed(1)} MeV  BE/A≈${bea.toFixed(2)} MeV  (SEMF estimate)`;
+}
+
+function drawAll(){ drawCurve(); }
+drawAll();
+</script>
+</body>
+</html>

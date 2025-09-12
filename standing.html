@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Standing Waves & Resonance (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Standing Waves & Resonance</h1>
+    <div class="ml-auto text-sm text-slate-300">Strings & air columns • Modes • Harmonic series</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div>
+      <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">System</label>
+      <select id="system" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+        <option value="string" selected>Stretched string</option>
+        <option value="pipeOpen">Open–open pipe</option>
+        <option value="pipeClosed">Closed–open pipe</option>
+      </select>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Length L (m)</label>
+        <input id="L" type="range" min="0.2" max="3" step="0.01" value="1.00" class="w-full">
+        <div class="text-xs text-slate-300">L = <span id="LVal">1.00</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Mode n</label>
+        <input id="n" type="range" min="1" max="10" step="1" value="1" class="w-full">
+        <div class="text-xs text-slate-300">n = <span id="nVal">1</span></div>
+      </div>
+    </div>
+    <div id="stringControls" class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Tension T (N)</label>
+        <input id="T" type="range" min="5" max="400" step="1" value="60" class="w-full">
+        <div class="text-xs text-slate-300">T = <span id="TVal">60</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Linear density μ (kg/m)</label>
+        <input id="mu" type="range" min="0.001" max="0.050" step="0.001" value="0.010" class="w-full">
+        <div class="text-xs text-slate-300">μ = <span id="muVal">0.010</span></div>
+      </div>
+    </div>
+    <div id="airControls" class="hidden grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Speed of sound v (m/s)</label>
+        <input id="vsound" type="range" min="280" max="360" step="1" value="340" class="w-full">
+        <div class="text-xs text-slate-300">v = <span id="vVal">340</span></div>
+      </div>
+      <div class="flex items-end">
+        <div class="text-xs text-slate-300">Harmonics: open–open n=1,2,3… • closed–open n=1,3,5…</div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <button id="animate" class="btn">▶ Animate</button>
+      <button id="pause" class="btn">⏸ Pause</button>
+      <button id="reset" class="btn ml-auto">↺ Reset</button>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      String: f_n = (n/2L) √(T/μ). Open–open pipe: f_n = n v / (2L). Closed–open: f_n = n v / (4L) with odd n only.
+      Nodes are points of zero displacement; antinodes are maxima. Resonance when driving matches a natural frequency.
+    </div>
+  </aside>
+
+  <section class="section p-3 grid gap-3">
+    <canvas id="view" width="1000" height="380" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+    <div id="readouts" class="text-sm font-mono px-2"></div>
+  </section>
+</main>
+
+<script>
+const C=document.getElementById('view'); const ctx=C.getContext('2d');
+const out=document.getElementById('readouts');
+let running=true, t=0;
+const st = { sys:'string', L:1.0, n:1, T:60, mu:0.01, vs:340 };
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('LVal').textContent = st.L.toFixed(2);
+  ids('nVal').textContent = st.n.toFixed(0);
+  ids('TVal').textContent = st.T.toFixed(0);
+  ids('muVal').textContent = st.mu.toFixed(3);
+  ids('vVal').textContent = st.vs.toFixed(0);
+}
+ids('system').addEventListener('change', e=>{
+  st.sys=e.target.value;
+  document.getElementById('stringControls').classList.toggle('hidden', st.sys!=='string');
+  document.getElementById('airControls').classList.toggle('hidden', st.sys==='string');
+  draw();
+});
+['L','n','T','mu','vsound'].forEach(id=>{
+  const el=ids(id);
+  if(!el) return;
+  el.addEventListener('input', e=>{
+    if (id==='vsound') st.vs=+e.target.value;
+    else st[id]=+e.target.value;
+    sync(); draw();
+  });
+});
+ids('animate').addEventListener('click', ()=> running=true);
+ids('pause').addEventListener('click', ()=> running=false);
+ids('reset').addEventListener('click', ()=>{ t=0; draw(); });
+
+function freq(){
+  const L=st.L, n=st.n;
+  if (st.sys==='string'){
+    const v = Math.sqrt(st.T/st.mu);
+    return n*v/(2*L);
+  } else if (st.sys==='pipeOpen'){
+    return n*st.vs/(2*L);
+  } else {
+    const nOdd = n*2-1; // map slider 1..10 → 1,3,5..
+    return nOdd*st.vs/(4*L);
+  }
+}
+function draw(){
+  const W=C.width,H=C.height;
+  ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="rgba(148,163,184,.25)"; ctx.strokeRect(40,60,W-80,H-120);
+
+  const f = freq();
+  out.textContent = `n=${st.n}   f ≈ ${f.toFixed(2)} Hz   λ ≈ ${( (st.sys==='string'||st.sys==='pipeOpen') ? (2*st.L/st.n) : (4*st.L/(2*st.n-1)) ).toFixed(2)} m`;
+
+  const N=400;
+  ctx.strokeStyle="#60a5fa"; ctx.lineWidth=2; ctx.beginPath();
+  for (let i=0;i<=N;i++){
+    const x = 40 + (i/N)*(W-80);
+    const s = (i/N);
+    // map 0..1 to 0..L
+    const X = s*st.L;
+    let y = 0;
+    if (st.sys==='string'){
+      y = Math.sin(st.n*Math.PI*X/st.L)*Math.cos(2*Math.PI*f*t);
+    } else if (st.sys==='pipeOpen'){
+      y = Math.sin(st.n*Math.PI*X/st.L)*Math.cos(2*Math.PI*f*t); // displacement at antinodes
+    } else {
+      const nOdd = 2*st.n-1;
+      y = Math.sin(nOdd*Math.PI*X/(2*st.L))*Math.cos(2*Math.PI*f*t);
+    }
+    const Y = H/2 - y*80;
+    if (i===0) ctx.moveTo(x,Y); else ctx.lineTo(x,Y);
+  }
+  ctx.stroke();
+  // nodes markers
+  ctx.fillStyle="rgba(248,250,252,.8)"; ctx.font="12px ui-sans-serif";
+  const nodePositions=[];
+  if (st.sys==='string' || st.sys==='pipeOpen'){
+    for (let k=0;k<=st.n;k++){ nodePositions.push(k*st.L/st.n); }
+  } else {
+    for (let k=0;k<=st.n-1;k++){ nodePositions.push( (2*k+1)*st.L/(2*st.n-1) ); }
+    nodePositions.unshift(0);
+  }
+  for (const nx of nodePositions){
+    const x = 40 + (nx/st.L)*(W-80);
+    ctx.fillRect(x-1, H/2-8, 2, 16);
+  }
+}
+function loop(){
+  if (running) t += 0.016;
+  draw();
+  requestAnimationFrame(loop);
+}
+sync(); loop();
+</script>
+</body>
+</html>

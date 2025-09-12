@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Materials: Stress–Strain & Young’s Modulus (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Materials: Stress–Strain & Young’s Modulus</h1>
+    <div class="ml-auto text-sm text-slate-300">Elastic & plastic • Yield/UTS/break • Toughness</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div>
+      <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Preset material</label>
+      <select id="preset" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+        <option value="steel" selected>Low-carbon steel</option>
+        <option value="aluminium">Aluminium</option>
+        <option value="copper">Copper</option>
+        <option value="glass">Glass (brittle)</option>
+        <option value="rubber">Rubber (polymer)</option>
+      </select>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Gauge length L (m)</label>
+        <input id="L" type="range" min="0.1" max="2.0" step="0.01" value="1.00" class="w-full">
+        <div class="text-xs text-slate-300">L = <span id="LVal">1.00</span> m</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Area A (mm²)</label>
+        <input id="A" type="range" min="0.5" max="200" step="0.5" value="10" class="w-full">
+        <div class="text-xs text-slate-300">A = <span id="AVal">10.0</span> mm²</div>
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Applied force F (kN)</label>
+      <input id="F" type="range" min="0" max="50" step="0.1" value="5" class="w-full">
+      <div class="text-xs text-slate-300">F = <span id="FVal">5.0</span> kN</div>
+    </div>
+    <div class="text-xs text-slate-300 leading-6">
+      Young’s modulus: E = stress/strain = (F/A)/(ΔL/L). Toughness is area under the stress–strain curve.
+      Ductile materials show yield & strain hardening before necking (UTS) and fracture; brittle fracture occurs with little plastic deformation.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="curve" width="1000" height="280" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">Specimen schematic</div>
+          <canvas id="spec" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Key definitions:
+  Stress σ = F/A       (Pa)
+  Strain ε = ΔL/L      (unitless)
+  Young’s modulus E = slope in elastic region (σ = Eε)
+  Yield stress: onset of plastic flow
+  Ultimate tensile strength (UTS): max σ
+  Fracture stress: breaking point
+  Toughness: ∫ σ dε (area under curve)
+</pre>
+        </div>
+      </div>
+      <div id="readouts" class="text-sm font-mono px-2"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const C = document.getElementById('curve').getContext('2d');
+const S = document.getElementById('spec').getContext('2d');
+const out = document.getElementById('readouts');
+
+const st = { L:1.0, A:10e-6, F:5e3, mat:'steel' };
+
+const presets = {
+  steel: {E:200e9, yield:250e6, uts:450e6, break:400e6, plasticSlope: 0.05, name:"Low-carbon steel"},
+  aluminium: {E:69e9, yield:100e6, uts:200e6, break:160e6, plasticSlope: 0.04, name:"Aluminium"},
+  copper: {E:110e9, yield:70e6, uts:220e6, break:180e6, plasticSlope: 0.03, name:"Copper"},
+  glass: {E:70e9, yield:Infinity, uts:0.8e9, break:0.8e9, brittle:true, name:"Glass"},
+  rubber: {E:0.01e9, yield:Infinity, uts:5e6, break:5e6, nonlin:true, name:"Rubber"}
+};
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('LVal').textContent = st.L.toFixed(2);
+  ids('AVal').textContent = (st.A*1e6).toFixed(1);
+  ids('FVal').textContent = (st.F/1e3).toFixed(1);
+}
+ids('preset').addEventListener('change', e=>{ st.mat=e.target.value; drawAll(); });
+ids('L').addEventListener('input', e=>{ st.L=+e.target.value; sync(); drawAll(); });
+ids('A').addEventListener('input', e=>{ st.A=(+e.target.value)*1e-6; sync(); drawAll(); });
+ids('F').addEventListener('input', e=>{ st.F=(+e.target.value)*1e3; sync(); drawAll(); });
+sync();
+
+function stressStrainCurve(mat){
+  const p = presets[mat];
+  const pts=[];
+  if (p.nonlin){
+    // rubber-like: gentle non-linear, then steepening
+    for (let e=0; e<=2.0; e+=0.01){
+      const s = p.E*(e - 0.6*e*e + 0.2*e*e*e);
+      if (s>p.break){ pts.push({e, s:p.break}); break; }
+      pts.push({e, s});
+    }
+    return pts;
+  }
+  if (p.brittle){
+    for (let e=0; e<=0.01; e+=0.0001){
+      const s = p.E*e;
+      if (s>=p.break){ pts.push({e, s:p.break}); break; }
+      pts.push({e, s});
+    }
+    return pts;
+  }
+  // ductile: linear to yield, then plastic with smaller slope up to UTS, then drop to break
+  const ey = p.yield/p.E;
+  for (let e=0; e<=ey; e+=0.0005){ pts.push({e, s:p.E*e}); }
+  // plastic region
+  let s = p.yield;
+  for (let e=ey+0.0005; s<p.uts; e+=0.0008){
+    s += p.plasticSlope*p.E*0.0008;
+    pts.push({e, s});
+    if (e>0.3) break;
+  }
+  // necking: drop to break
+  pts.push({e:pts[pts.length-1].e+0.02, s:p.break});
+  return pts;
+}
+
+function drawCurve(){
+  const W=C.canvas.width, H=C.canvas.height;
+  C.fillStyle="#0f172a"; C.fillRect(0,0,W,H);
+  C.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ C.beginPath(); C.moveTo(0,y); C.lineTo(W,y); C.stroke(); }
+  // axes
+  C.strokeStyle="rgba(148,163,184,.6)"; C.beginPath(); C.moveTo(50,10); C.lineTo(50,H-40); C.lineTo(W-20,H-40); C.stroke();
+  C.fillStyle="rgba(226,232,240,.9)"; C.font="12px ui-sans-serif"; C.fillText("ε (strain)", W-80, H-14); C.save(); C.translate(16, H/2); C.rotate(-Math.PI/2); C.fillText("σ (MPa)", 0,0); C.restore();
+
+  const pts = stressStrainCurve(st.mat);
+  const sMax = Math.max(...pts.map(p=>p.s));
+  function px(e){ return 50 + e/ (st.mat==='rubber'?2.0:0.3) * (W-80); }
+  function py(s){ return (H-40) - (s/sMax)*(H-60); }
+  C.strokeStyle="#60a5fa"; C.lineWidth=2; C.beginPath(); let first=true;
+  for (const p of pts){ const x=px(p.e), y=py(p.s); if(first){C.moveTo(x,y); first=false;} else C.lineTo(x,y); } C.stroke();
+  // markers
+  const p = presets[st.mat];
+  C.strokeStyle="#fbbf24"; C.setLineDash([5,5]);
+  if (isFinite(p.yield)){ const yx=px(p.yield/p.E); C.beginPath(); C.moveTo(yx,10); C.lineTo(yx,H-40); C.stroke(); }
+  if (p.uts){ const sy=py(p.uts); C.beginPath(); C.moveTo(50,sy); C.lineTo(W-20,sy); C.stroke(); }
+  if (p.break){ const sy=py(p.break); C.beginPath(); C.moveTo(50,sy); C.lineTo(W-20,sy); C.stroke(); }
+  C.setLineDash([]);
+}
+
+function drawSpecimen(){
+  const W=S.canvas.width, H=S.canvas.height;
+  S.fillStyle="#0f172a"; S.fillRect(0,0,W,H);
+  // clamps
+  S.fillStyle="#64748b"; S.fillRect(70,40,60,H-80); S.fillRect(W-130,40,60,H-80);
+  // specimen
+  const baseL = st.L; const A = st.A; const sigma = st.F/A; const E = presets[st.mat].E;
+  let eps = sigma/E; if (presets[st.mat].brittle && sigma>presets[st.mat].break) eps = presets[st.mat].break/E;
+  if (presets[st.mat].nonlin){ eps = Math.min(1.8, eps*6); }
+  const dL = eps*baseL;
+  const pixPerM = 120;
+  const midY=H/2;
+  S.fillStyle="#34d399";
+  S.fillRect(130, midY-10, Math.min(W-260, (baseL+dL)*pixPerM), 20);
+  S.fillStyle="rgba(226,232,240,.9)"; S.font="12px ui-sans-serif";
+  S.fillText(`ΔL ≈ ${dL.toFixed(4)} m   ε ≈ ${eps.toFixed(4)}   σ ≈ ${(sigma/1e6).toFixed(1)} MPa   E≈ ${(E/1e9).toFixed(0)} GPa`, 20, 24);
+  out.textContent = `${presets[st.mat].name} • Estimated toughness ~ area under σ–ε curve. Move F to see elastic vs plastic response.`;
+}
+
+function drawAll(){ drawCurve(); drawSpecimen(); }
+drawAll();
+</script>
+</body>
+</html>

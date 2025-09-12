@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Circular Motion & Banked Curves (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Circular Motion & Banked Curves</h1>
+    <div class="ml-auto text-sm text-slate-300">Centripetal force • Friction limits • Conical pendulum</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Scenario</label>
+        <select id="mode" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+          <option value="banked" selected>Banked curve (car)</option>
+          <option value="conical">Conical pendulum</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Mass m (kg)</label>
+        <input id="m" type="range" min="0.1" max="2000" step="0.1" value="1000" class="w-full">
+        <div class="text-xs text-slate-300">m = <span id="mVal">1000</span> kg</div>
+      </div>
+    </div>
+    <div id="banked" class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Radius r (m)</label>
+        <input id="r" type="range" min="5" max="200" step="1" value="50" class="w-full">
+        <div class="text-xs text-slate-300">r = <span id="rVal">50</span> m</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Speed v (m/s)</label>
+        <input id="v" type="range" min="0" max="70" step="0.5" value="20" class="w-full">
+        <div class="text-xs text-slate-300">v = <span id="vVal">20.0</span> m/s</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Bank angle θ (°)</label>
+        <input id="theta" type="range" min="0" max="60" step="1" value="15" class="w-full">
+        <div class="text-xs text-slate-300">θ = <span id="thetaVal">15</span>°</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Friction μ</label>
+        <input id="mu" type="range" min="0" max="1.0" step="0.01" value="0.30" class="w-full">
+        <div class="text-xs text-slate-300">μ = <span id="muVal">0.30</span></div>
+      </div>
+    </div>
+    <div id="conical" class="hidden grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">String length l (m)</label>
+        <input id="l" type="range" min="0.2" max="5" step="0.01" value="1.00" class="w-full">
+        <div class="text-xs text-slate-300">l = <span id="lVal">1.00</span> m</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Angle α (°)</label>
+        <input id="alpha" type="range" min="5" max="80" step="1" value="30" class="w-full">
+        <div class="text-xs text-slate-300">α = <span id="alphaVal">30</span>°</div>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      Centripetal: F_c = m v² / r. Banked with friction: safe speed range
+      v_min = √[ r g (sinθ − μ cosθ) / (cosθ + μ sinθ) ],  v_max = √[ r g (sinθ + μ cosθ) / (cosθ − μ sinθ) ].
+      Conical pendulum: T cosα = mg,  T sinα = m v² / r,  r = l sinα ⇒ v = √( r g tanα ).
+    </div>
+  </aside>
+
+  <section class="section p-3 grid gap-3">
+    <canvas id="scene" width="1000" height="380" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+    <div id="readouts" class="text-sm font-mono px-2"></div>
+  </section>
+</main>
+
+<script>
+const C=document.getElementById('scene'); const ctx=C.getContext('2d');
+const out=document.getElementById('readouts');
+const g=9.81;
+const st = { mode:'banked', m:1000, r:50, v:20, theta:15, mu:0.3, l:1.0, alpha:30 };
+const ids=s=>document.getElementById(s);
+
+function sync(){
+  ids('mVal').textContent = st.m.toFixed(0);
+  ids('rVal').textContent = st.r.toFixed(0);
+  ids('vVal').textContent = st.v.toFixed(1);
+  ids('thetaVal').textContent = st.theta.toFixed(0);
+  ids('muVal').textContent = st.mu.toFixed(2);
+  ids('lVal').textContent = st.l.toFixed(2);
+  ids('alphaVal').textContent = st.alpha.toFixed(0);
+}
+ids('mode').addEventListener('change', e=>{
+  st.mode=e.target.value;
+  document.getElementById('banked').classList.toggle('hidden', st.mode!=='banked');
+  document.getElementById('conical').classList.toggle('hidden', st.mode!=='conical');
+  draw();
+});
+['m','r','v','theta','mu','l','alpha'].forEach(id=> ids(id).addEventListener('input', e=>{ st[id]=+e.target.value; sync(); draw(); }));
+sync();
+
+function bankedSafety(){
+  const th = st.theta*Math.PI/180;
+  const mu = st.mu;
+  const numMax = st.r*g*(Math.sin(th)+mu*Math.cos(th));
+  const denMax = (Math.cos(th)-mu*Math.sin(th));
+  const numMin = st.r*g*(Math.sin(th)-mu*Math.cos(th));
+  const denMin = (Math.cos(th)+mu*Math.sin(th));
+  let vmax = denMax>0 ? Math.sqrt(Math.max(0,numMax/denMax)) : Infinity;
+  let vmin = (numMin>0 && denMin>0) ? Math.sqrt(numMin/denMin) : 0;
+  return {vmin, vmax};
+}
+
+let t=0;
+function draw(){
+  const W=C.width,H=C.height;
+  ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="rgba(148,163,184,.25)"; ctx.strokeRect(40,40,W-80,H-80);
+
+  if (st.mode==='banked'){
+    const th=st.theta*Math.PI/180;
+    // road
+    ctx.save(); ctx.translate(W/2,H/2+40); ctx.rotate(-th);
+    ctx.fillStyle="#475569"; ctx.fillRect(-400,-20,800,40);
+    // car
+    const x = -200 + (t%10)/10 * 400;
+    ctx.fillStyle="#60a5fa"; ctx.fillRect(x-20,-18,40,18);
+    // forces at car center
+    const cx=x, cy=-18;
+    ctx.translate(cx,cy);
+    ctx.rotate(th);
+    // back to world orientation for arrows
+    ctx.rotate(0);
+    ctx.fillStyle="#e2e8f0"; ctx.font="12px ui-sans-serif";
+    function arrow(ax,ay,dx,dy,col){ ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax+dx, ay+dy); ctx.stroke(); }
+    // weight
+    arrow(0,0, 0, 60, "#f87171");
+    // normal
+    arrow(0,0, 0, -70, "#34d399");
+    // friction (approx direction)
+    arrow(0,0, 70, 0, "#fbbf24");
+    ctx.restore();
+
+    const {vmin, vmax} = bankedSafety();
+    const safe = (st.v>=vmin && st.v<=vmax);
+    out.textContent = `Banked curve: v=${st.v.toFixed(1)} m/s   safe range ≈ [${isFinite(vmin)?vmin.toFixed(1):"0"}, ${isFinite(vmax)?vmax.toFixed(1):"∞"}] m/s   ${safe?"OK (no slip)":"⚠ may slip"}`;
+  } else {
+    // conical pendulum
+    const alpha=st.alpha*Math.PI/180;
+    const r = st.l*Math.sin(alpha);
+    const v = Math.sqrt(r*g*Math.tan(alpha));
+    // draw
+    const cx=W/2, cy=H/2-60;
+    ctx.strokeStyle="rgba(148,163,184,.5)"; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx + r*120, cy + st.l*120*Math.cos(alpha)); ctx.stroke();
+    ctx.fillStyle="#60a5fa"; ctx.beginPath(); ctx.arc(cx + r*120, cy + st.l*120*Math.cos(alpha), 8, 0, Math.PI*2); ctx.fill();
+    // circle path
+    ctx.strokeStyle="rgba(148,163,184,.3)"; ctx.beginPath(); ctx.arc(cx, cy + st.l*120*Math.cos(alpha), r*120, 0, Math.PI*2); ctx.stroke();
+    out.textContent = `Conical pendulum: r=${r.toFixed(2)} m   required v≈${v.toFixed(2)} m/s   Tension T≈${(st.m*g/Math.cos(alpha)).toFixed(1)} N`;
+  }
+}
+function loop(){ t += st.v/200; draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>

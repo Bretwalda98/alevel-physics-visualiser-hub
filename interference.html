@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interference & Diffraction — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: pixelated; }
+  .kbd{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:.4rem; padding:.1rem .35rem}
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Interference & Diffraction — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">Drag sources on the canvas</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div>
+      <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Preset</label>
+      <select id="preset" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+        <option value="double" selected>Young’s Double Slit (2 sources)</option>
+        <option value="triple">Three Sources (equal phase)</option>
+        <option value="phase">Two Sources (phase offset π/2)</option>
+        <option value="grating">Five Sources (grating)</option>
+      </select>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Wavelength λ (m)</label>
+        <input id="lambda" type="range" min="0.2" max="5" step="0.05" value="1.0" class="w-full">
+        <div class="text-xs text-slate-300">λ = <span id="lambdaVal">1.00</span> m</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Frequency f (Hz)</label>
+        <input id="freq" type="range" min="0.1" max="5" step="0.1" value="1.0" class="w-full">
+        <div class="text-xs text-slate-300">f = <span id="freqVal">1.0</span> Hz</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Amplitude A</label>
+        <input id="amp" type="range" min="0.1" max="2" step="0.1" value="1" class="w-full">
+        <div class="text-xs text-slate-300">A = <span id="ampVal">1.0</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Sources</label>
+        <input id="nsrc" type="range" min="1" max="7" step="1" value="2" class="w-full">
+        <div class="text-xs text-slate-300">N = <span id="nsrcVal">2</span></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Separation d (m)</label>
+        <input id="sep" type="range" min="0.2" max="8" step="0.1" value="3" class="w-full">
+        <div class="text-xs text-slate-300">d = <span id="sepVal">3.0</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Phase φ (rad)</label>
+        <input id="phase" type="range" min="0" max="6.283" step="0.01" value="0" class="w-full">
+        <div class="text-xs text-slate-300">φ = <span id="phaseVal">0.00</span></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Falloff (1/rᵏ)</label>
+        <input id="fall" type="range" min="0" max="2" step="0.1" value="1.0" class="w-full">
+        <div class="text-xs text-slate-300">k = <span id="fallVal">1.0</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Frame rate</label>
+        <input id="dt" type="range" min="8" max="40" value="16" step="1" class="w-full">
+        <div class="text-xs text-slate-300">dt = <span id="dtVal">16</span> ms</div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <button id="play" class="btn">▶ Play</button>
+      <button id="pause" class="btn">⏸ Pause</button>
+      <button id="reset" class="btn ml-auto">↺ Reset</button>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      Sum the waves from N point sources: s = Σ A·cos(kr − ωt + φᵢ)/rᵏ.<br>
+      Heatmap shows intensity ∝ s². Drag the source markers to reposition.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 relative">
+      <canvas id="view" width="1000" height="520" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="absolute top-3 right-3 text-xs text-slate-300">Constructive (bright) / Destructive (dark)</div>
+    </div>
+    <div class="grid sm:grid-cols-2 gap-3 text-sm">
+      <div class="section p-3">
+        <div class="text-slate-400 text-xs uppercase mb-1">Line profile</div>
+        <canvas id="profile" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        <div class="text-xs text-slate-300 mt-1">Horizontal slice through the centre.</div>
+      </div>
+      <div class="section p-3">
+        <div class="text-slate-400 text-xs uppercase mb-1">Equations</div>
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+k = 2π/λ,  ω = 2πf
+s(x,y,t) = Σᵢ A cos( k rᵢ − ω t + φᵢ ) / rᵢᵏ
+I(x,y) ∝ s²  (displayed as heatmap)
+For two sources, central fringe spacing ≈ λL/d (far-field).
+</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const C = document.getElementById('view');
+const P = document.getElementById('profile');
+const ctx = C.getContext('2d');
+const pctx = P.getContext('2d');
+
+let params = {
+  lambda: 1.0, freq: 1.0, amp: 1.0, n: 2, sep: 3.0, phase: 0.0, fall: 1.0, dt: 0.016
+};
+let t = 0, running = true;
+const ppm = 50; // pixels per metre
+const sources = []; // {x,y,phi}
+
+function resetSources(){
+  sources.length = 0;
+  const midx = C.width/2, midy = C.height/2;
+  const dpx = params.sep * ppm;
+  const n = params.n;
+  if (n===1){
+    sources.push({x:midx, y:midy, phi:0});
+  } else {
+    const start = midx - (n-1)*dpx/2;
+    for (let i=0;i<n;i++){
+      sources.push({x:start + i*dpx, y:midy, phi: (i%2===0?0:params.phase)});
+    }
+  }
+}
+resetSources();
+
+// Controls
+const ids = s=>document.getElementById(s);
+function sync(){
+  ids('lambdaVal').textContent = params.lambda.toFixed(2);
+  ids('freqVal').textContent = params.freq.toFixed(1);
+  ids('ampVal').textContent = params.amp.toFixed(1);
+  ids('nsrcVal').textContent = params.n.toString();
+  ids('sepVal').textContent = params.sep.toFixed(1);
+  ids('phaseVal').textContent = params.phase.toFixed(2);
+  ids('fallVal').textContent = params.fall.toFixed(1);
+  ids('dtVal').textContent = Math.round(params.dt*1000);
+}
+['lambda','freq','amp','nsrc','sep','phase','fall','dt'].forEach(id=>{
+  ids(id).addEventListener('input', e=>{
+    const v = +e.target.value;
+    if (id==='lambda') params.lambda=v;
+    if (id==='freq') params.freq=v;
+    if (id==='amp') params.amp=v;
+    if (id==='nsrc'){ params.n=v; resetSources(); }
+    if (id==='sep'){ params.sep=v; resetSources(); }
+    if (id==='phase') params.phase=v;
+    if (id==='fall') params.fall=v;
+    if (id==='dt') params.dt = v/1000;
+    sync();
+  });
+});
+ids('preset').addEventListener('change', e=>{
+  const p = e.target.value;
+  if (p==='double'){ params.n=2; params.phase=0; params.sep=3; params.lambda=1; }
+  if (p==='triple'){ params.n=3; params.phase=0; params.sep=2; params.lambda=0.8; }
+  if (p==='phase'){ params.n=2; params.phase=Math.PI/2; params.sep=2.5; params.lambda=1.2; }
+  if (p==='grating'){ params.n=5; params.phase=0; params.sep=1.2; params.lambda=0.6; }
+  resetSources(); sync();
+});
+ids('play').addEventListener('click', ()=> running=true);
+ids('pause').addEventListener('click', ()=> running=false);
+ids('reset').addEventListener('click', ()=>{ t=0; resetSources(); });
+
+function heatColor(v){
+  // v in [0,1] -> plasma-ish
+  const r = Math.min(255, Math.max(0, Math.floor(512*v-128)));
+  const g = Math.min(255, Math.max(0, Math.floor(512*(v-0.25))));
+  const b = Math.min(255, Math.max(0, Math.floor(512*(0.5-v))));
+  return [r,g,b,255];
+}
+
+let dragging = -1;
+C.addEventListener('mousedown', e=>{
+  const r = C.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
+  for (let i=0;i<sources.length;i++){
+    const s = sources[i];
+    if ((s.x-mx)**2 + (s.y-my)**2 < 12**2){ dragging=i; break; }
+  }
+});
+window.addEventListener('mouseup', ()=> dragging=-1);
+window.addEventListener('mousemove', e=>{
+  if (dragging<0) return;
+  const r = C.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
+  sources[dragging].x = mx; sources[dragging].y = my;
+});
+
+function render(){
+  const img = ctx.createImageData(C.width, C.height);
+  const data = img.data;
+  const k = 2*Math.PI/params.lambda;
+  const w = 2*Math.PI*params.freq;
+  for (let y=0;y<C.height;y+=2){      // 2x2 pixel step for speed
+    for (let x=0;x<C.width;x+=2){
+      let s=0;
+      for (const src of sources){
+        const dx = (x-src.x)/ppm, dy = (y-src.y)/ppm;
+        const r = Math.hypot(dx,dy)+1e-6;
+        s += params.amp * Math.cos(k*r - w*t + src.phi) / Math.pow(r, params.fall);
+      }
+      const I = s*s;
+      // normalize: simple tanh mapping
+      const v = Math.tanh(I*0.5);
+      const [R,G,B,A] = heatColor(v);
+      const idx = (y*C.width + x)*4;
+      for (let oy=0; oy<2; oy++){
+        for (let ox=0; ox<2; ox++){
+          const j = ((y+oy)*C.width + (x+ox))*4;
+          data[j]=R; data[j+1]=G; data[j+2]=B; data[j+3]=A;
+        }
+      }
+    }
+  }
+  ctx.putImageData(img,0,0);
+
+  // draw sources
+  ctx.fillStyle="#67e8f9"; ctx.strokeStyle="rgba(255,255,255,.6)"; ctx.lineWidth=1.5;
+  for (const s of sources){
+    ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+
+  // profile (centre row)
+  const mid = Math.floor(C.height/2);
+  const W = P.width, H=P.height;
+  pctx.fillStyle="#0f172a"; pctx.fillRect(0,0,W,H);
+  pctx.strokeStyle="#60a5fa"; pctx.lineWidth=1.5; pctx.beginPath();
+  let first=true;
+  for (let x=0;x<C.width;x+=2){
+    let s=0;
+    for (const src of sources){
+      const dx = (x-src.x)/ppm, dy = (mid-src.y)/ppm;
+      const r = Math.hypot(dx,dy)+1e-6;
+      s += params.amp * Math.cos(k*r - w*t + src.phi) / Math.pow(r, params.fall);
+    }
+    const I = s*s;
+    const px = x/C.width*W, py = H-5 - Math.tanh(I*0.5)*(H-10);
+    if (first){ pctx.moveTo(px,py); first=false; } else pctx.lineTo(px,py);
+  }
+  pctx.stroke();
+}
+
+function loop(){
+  if (running) t += params.dt;
+  render();
+  requestAnimationFrame(loop);
+}
+sync(); loop();
+</script>
+</body>
+</html>

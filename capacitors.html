@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Capacitors (RC & Equivalents) — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Capacitors — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">RC charge/discharge • Series/parallel equivalent</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div>
+      <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Mode</label>
+      <select id="mode" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+        <option value="rc" selected>RC Circuit (single C)</option>
+        <option value="equiv">Equivalent C (series/parallel)</option>
+      </select>
+    </div>
+    <div id="rcControls" class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">C (µF)</label>
+        <input id="C" type="range" min="1" max="1000" step="1" value="220" class="w-full">
+        <div class="text-xs text-slate-300">C = <span id="CVal">220</span> µF</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">R (kΩ)</label>
+        <input id="R" type="range" min="1" max="500" step="1" value="47" class="w-full">
+        <div class="text-xs text-slate-300">R = <span id="RVal">47</span> kΩ</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Supply V (V)</label>
+        <input id="V" type="range" min="1" max="24" step="0.5" value="9" class="w-full">
+        <div class="text-xs text-slate-300">V = <span id="VVal">9.0</span> V</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Action</label>
+        <select id="action" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+          <option value="charge" selected>Charge</option>
+          <option value="discharge">Discharge</option>
+        </select>
+      </div>
+      <div class="col-span-2">
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Δt (ms)</label>
+        <input id="dt" type="range" min="5" max="80" step="1" value="16" class="w-full">
+        <div class="text-xs text-slate-300">dt = <span id="dtVal">16</span> ms</div>
+      </div>
+    </div>
+
+    <div id="eqControls" class="hidden grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">C₁ (µF)</label>
+        <input id="C1" type="range" min="1" max="1000" step="1" value="220" class="w-full">
+        <div class="text-xs text-slate-300">C₁ = <span id="C1Val">220</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">C₂ (µF)</label>
+        <input id="C2" type="range" min="1" max="1000" step="1" value="330" class="w-full">
+        <div class="text-xs text-slate-300">C₂ = <span id="C2Val">330</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Connection</label>
+        <select id="conn" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+          <option value="series" selected>Series</option>
+          <option value="parallel">Parallel</option>
+        </select>
+      </div>
+      <div class="flex items-end">
+        <div class="text-xs text-slate-300">Result: <span id="Ceq">—</span> µF</div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <button id="play" class="btn">▶ Play</button>
+      <button id="pause" class="btn">⏸ Pause</button>
+      <button id="reset" class="btn ml-auto">↺ Reset</button>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      RC charge: V_C(t)=V(1−e^{−t/RC}); discharge: V_C(t)=V₀ e^{−t/RC}. Time constant τ=RC. Q=CV, I=C dV/dt.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="schem" width="1000" height="240" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">V_C(t), Q(t), I(t)</div>
+          <canvas id="graph" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">Equations</div>
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+τ = R C
+Charge:     V_C = V (1 − e^{−t/τ})   Q = C V_C   I = (V/R) e^{−t/τ}
+Discharge:  V_C = V₀ e^{−t/τ}        Q = C V_C   I = − (V₀/R) e^{−t/τ}
+Series: 1/C_eq = 1/C₁ + 1/C₂      Parallel: C_eq = C₁ + C₂
+</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const S = document.getElementById('schem').getContext('2d');
+const G = document.getElementById('graph').getContext('2d');
+
+let running=true, t=0;
+const st = { mode:'rc', C:220e-6, R:47e3, V:9, action:'charge', dt:0.016, Vc:0, C1:220e-6, C2:330e-6, conn:'series' };
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('CVal').textContent = (st.C*1e6).toFixed(0);
+  ids('RVal').textContent = (st.R/1e3).toFixed(0);
+  ids('VVal').textContent = st.V.toFixed(1);
+  ids('dtVal').textContent = Math.round(st.dt*1000);
+  ids('C1Val').textContent = (st.C1*1e6).toFixed(0);
+  ids('C2Val').textContent = (st.C2*1e6).toFixed(0);
+  // Ceq
+  let Ceq=0;
+  if (st.conn==='series') Ceq = 1 / (1/st.C1 + 1/st.C2);
+  else Ceq = st.C1 + st.C2;
+  document.getElementById('Ceq').textContent = (Ceq*1e6).toFixed(1);
+}
+ids('mode').addEventListener('change', e=>{
+  st.mode = e.target.value;
+  document.getElementById('rcControls').classList.toggle('hidden', st.mode!=='rc');
+  document.getElementById('eqControls').classList.toggle('hidden', st.mode!=='equiv');
+});
+ids('C').addEventListener('input', e=>{ st.C=(+e.target.value)*1e-6; sync(); });
+ids('R').addEventListener('input', e=>{ st.R=(+e.target.value)*1e3; sync(); });
+ids('V').addEventListener('input', e=>{ st.V=+e.target.value; sync(); });
+ids('action').addEventListener('change', e=>{ st.action=e.target.value; });
+ids('dt').addEventListener('input', e=>{ st.dt=(+e.target.value)/1000; sync(); });
+ids('C1').addEventListener('input', e=>{ st.C1=(+e.target.value)*1e-6; sync(); });
+ids('C2').addEventListener('input', e=>{ st.C2=(+e.target.value)*1e-6; sync(); });
+ids('conn').addEventListener('change', e=>{ st.conn=e.target.value; sync(); });
+
+document.getElementById('play').addEventListener('click', ()=> running=true);
+document.getElementById('pause').addEventListener('click', ()=> running=false);
+document.getElementById('reset').addEventListener('click', ()=>{ t=0; st.Vc = (st.action==='charge'?0:st.V); trail.length=0; });
+
+function drawSchem(){
+  const c = document.getElementById('schem'); const W=c.width, H=c.height, y=H/2;
+  S.fillStyle="#0f172a"; S.fillRect(0,0,W,H);
+  S.strokeStyle="#e2e8f0"; S.lineWidth=2; S.lineCap="round";
+  function wire(ax,ay,bx,by){ S.beginPath(); S.moveTo(ax,ay); S.lineTo(bx,by); S.stroke(); }
+  function battery(x,y){ S.beginPath(); S.moveTo(x,y-20); S.lineTo(x,y+20); S.moveTo(x+10,y-10); S.lineTo(x+10,y+10); S.stroke(); }
+  function resistor(x,y){ S.strokeRect(x,y-12,60,24); }
+  function capacitor(x,y){ S.beginPath(); S.moveTo(x,y-18); S.lineTo(x,y+18); S.moveTo(x+12,y-18); S.lineTo(x+12,y+18); S.stroke(); }
+  // draw RC
+  battery(80,y);
+  wire(90,y,160,y);
+  resistor(160,y);
+  wire(220,y,300,y);
+  capacitor(300,y);
+  wire(312,y,460,y);
+  wire(460,y,460,y+60); wire(460,y+60,80,y+60); wire(80,y+60,80,y);
+  // labels
+  S.fillStyle="rgba(226,232,240,.9)"; S.font="12px ui-sans-serif";
+  S.fillText(`V=${st.V.toFixed(1)}V`, 60, y-30);
+  S.fillText(`R=${(st.R/1e3).toFixed(0)}kΩ`, 165, y-18);
+  S.fillText(`C=${(st.C*1e6).toFixed(0)}µF`, 300, y-30);
+  S.fillText(`τ=RC=${(st.R*st.C).toFixed(2)} s`, 520, y-30);
+}
+
+const trail=[];
+function step(){
+  if (st.mode!=='rc') return;
+  const tau = st.R*st.C;
+  const dt = st.dt;
+  if (st.action==='charge'){
+    st.Vc += (st.V - st.Vc)*(1 - Math.exp(-dt/tau));
+  } else {
+    st.Vc *= Math.exp(-dt/tau);
+  }
+  t += dt;
+  trail.push({t, Vc:st.Vc, Q: st.C*st.Vc, I: (st.action==='charge'? (st.V - st.Vc)/st.R : -st.Vc/st.R)});
+  if (trail.length>2000) trail.shift();
+}
+
+function drawGraph(){
+  const W=500,H=180;
+  G.fillStyle="#0f172a"; G.fillRect(0,0,W,H);
+  G.strokeStyle="rgba(148,163,184,.25)"; G.lineWidth=1;
+  for (let y=0;y<H;y+=30){ G.beginPath(); G.moveTo(0,y); G.lineTo(W,y); G.stroke(); }
+  const tMin = Math.max(0, t-10);
+  const seg = trail.filter(d=>d.t>=tMin);
+  const vmax = st.V || 1;
+  function tx(T){ return 40 + ((T-tMin)/10)*(W-60); }
+  function drawLine(get, color, base){
+    G.strokeStyle=color; G.lineWidth=2; G.beginPath();
+    let first=true;
+    for (const d of seg){
+      const x = tx(d.t), y = base - get(d)*(H/3-10)/vmax;
+      if (first){ G.moveTo(x,y); first=false; } else G.lineTo(x,y);
+    }
+    G.stroke();
+  }
+  drawLine(d=>d.Vc, "#60a5fa", H*0.32);
+  drawLine(d=>d.Q/st.C, "#34d399", H*0.66);
+  drawLine(d=>Math.abs(d.I)*st.R, "#fbbf24", H*1.0-20);
+  G.fillStyle="rgba(226,232,240,.9)"; G.font="12px ui-sans-serif";
+  G.fillText("V_C", 6, 16); G.fillText("Q/C (→V)", 6, H*0.5); G.fillText("|I|R (→V)", 6, H-8);
+}
+
+function loop(){
+  if (running && st.mode==='rc') step();
+  drawSchem();
+  drawGraph();
+  requestAnimationFrame(loop);
+}
+sync(); drawSchem(); loop();
+</script>
+</body>
+</html>

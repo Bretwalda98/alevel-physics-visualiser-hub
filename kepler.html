@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kepler’s Laws — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Kepler’s Laws — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">Equal areas in equal times</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Star mass M (×10³⁰ kg)</label>
+        <input id="M" type="range" min="0.1" max="5" step="0.1" value="1.0" class="w-full">
+        <div class="text-xs text-slate-300">M = <span id="MVal">1.0</span> ×10³⁰ kg</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Semi‑major axis a (AU)</label>
+        <input id="a" type="range" min="0.3" max="6" step="0.1" value="2.0" class="w-full">
+        <div class="text-xs text-slate-300">a = <span id="aVal">2.0</span> AU</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Eccentricity e</label>
+        <input id="e" type="range" min="0" max="0.9" step="0.01" value="0.4" class="w-full">
+        <div class="text-xs text-slate-300">e = <span id="eVal">0.40</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Δt (simulation step)</label>
+        <input id="dt" type="range" min="2" max="60" step="1" value="16" class="w-full">
+        <div class="text-xs text-slate-300">dt = <span id="dtVal">16</span> ms</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Planets</label>
+        <input id="n" type="range" min="1" max="4" step="1" value="1" class="w-full">
+        <div class="text-xs text-slate-300">N = <span id="nVal">1</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Show swept areas</label>
+        <input id="showAreas" type="checkbox" class="ml-2" checked>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <button id="play" class="btn">▶ Play</button>
+      <button id="pause" class="btn">⏸ Pause</button>
+      <button id="reset" class="btn ml-auto">↺ Reset</button>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      Numerical orbit using Newtonian gravity (μ = GM). The wedge sectors demonstrate Kepler’s 2nd law
+      (equal areas in equal times). Side plot shows T² vs a³ for active planets.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="space" width="1000" height="520" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">T² vs a³</div>
+          <canvas id="kplot" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">Equations</div>
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Kepler 1: Planet orbits are ellipses with the star at a focus.
+Kepler 2: Equal areas are swept in equal times (areal velocity constant).
+Kepler 3: T² ∝ a³ (for planets about the same star).
+Newtonian model: a⃗ = − μ r⃗ / |r|³,  with μ = G M.
+We integrate with a semi‑implicit Euler step for stability.
+</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const G = 6.67430e-11;
+const AU = 1.496e11;
+const DAY = 86400;
+
+const S = document.getElementById('space');
+const K = document.getElementById('kplot');
+const sctx = S.getContext('2d');
+const kctx = K.getContext('2d');
+
+let params = { M:1.0, a:2.0, e:0.4, dt:0.016, n:1, showAreas:true };
+let running=true, t=0;
+const ppm = 120/AU; // scale: AU -> px (fit nicely)
+
+class Planet{
+  constructor(aAU, e, color){
+    this.color = color;
+    this.mu = G * (params.M*1e30);
+    this.a = aAU*AU;
+    this.e = e;
+    // start at periapsis with correct vis-viva speed
+    const r = this.a*(1-this.e);
+    const v = Math.sqrt(this.mu*(2/r - 1/this.a));
+    this.pos = {x:r, y:0};
+    this.vel = {x:0, y: v};
+    this.period = 2*Math.PI*Math.sqrt(this.a**3/this.mu);
+    this.sweeps = []; // sectors as [p0,p1] pairs every fixed ΔtA
+    this.lastAreaTime = 0;
+  }
+  step(dt){
+    // update μ in case M changed
+    this.mu = G*(params.M*1e30);
+    // acceleration toward origin
+    const r = Math.hypot(this.pos.x, this.pos.y);
+    const ax = -this.mu*this.pos.x/(r**3);
+    const ay = -this.mu*this.pos.y/(r**3);
+    // semi-implicit
+    this.vel.x += ax*dt;
+    this.vel.y += ay*dt;
+    this.pos.x += this.vel.x*dt;
+    this.pos.y += this.vel.y*dt;
+  }
+  areaStep(dt){
+    const now = t;
+    if (now - this.lastAreaTime > 10*DAY){ // every 10 days draw a wedge
+      this.sweeps.push({p0:{...this.pos}, p1:null, time: now});
+      this.lastAreaTime = now;
+    }
+    const last = this.sweeps[this.sweeps.length-1];
+    if (last) last.p1 = {...this.pos};
+    // keep limited
+    if (this.sweeps.length>60) this.sweeps.shift();
+  }
+}
+
+let planets = [];
+function resetPlanets(){
+  planets = [];
+  const cols = ["#60a5fa","#34d399","#fbbf24","#f472b6"];
+  for (let i=0;i<params.n;i++){
+    const aAU = params.a * (1 + 0.5*i);
+    const e = Math.min(0.85, params.e + 0.05*i);
+    planets.push(new Planet(aAU, e, cols[i%cols.length]));
+  }
+}
+resetPlanets();
+
+// controls
+const ids = s=>document.getElementById(s);
+function sync(){
+  ids('MVal').textContent = params.M.toFixed(1);
+  ids('aVal').textContent = params.a.toFixed(1);
+  ids('eVal').textContent = params.e.toFixed(2);
+  ids('dtVal').textContent = Math.round(params.dt*1000);
+  ids('nVal').textContent = params.n.toString();
+  ids('showAreas').checked = params.showAreas;
+}
+ids('M').addEventListener('input', e=>{ params.M=+e.target.value; sync(); });
+ids('a').addEventListener('input', e=>{ params.a=+e.target.value; resetPlanets(); sync(); });
+ids('e').addEventListener('input', e=>{ params.e=+e.target.value; resetPlanets(); sync(); });
+ids('dt').addEventListener('input', e=>{ params.dt=(+e.target.value)/1000; sync(); });
+ids('n').addEventListener('input', e=>{ params.n=+e.target.value; resetPlanets(); sync(); });
+ids('showAreas').addEventListener('change', e=>{ params.showAreas=e.target.checked; });
+
+ids('play')?.addEventListener('click', ()=> running=true);
+ids('pause')?.addEventListener('click', ()=> running=false);
+ids('reset')?.addEventListener('click', ()=>{ t=0; resetPlanets(); });
+
+function w2s(p){ return { x: S.width/2 + p.x*ppm, y: S.height/2 - p.y*ppm }; }
+
+function draw(){
+  sctx.fillStyle="#0f172a"; sctx.fillRect(0,0,S.width,S.height);
+  // star
+  sctx.fillStyle="#fde68a"; sctx.beginPath(); sctx.arc(S.width/2, S.height/2, 6, 0, Math.PI*2); sctx.fill();
+
+  for (const pl of planets){
+    // trails
+    sctx.strokeStyle = pl.color; sctx.lineWidth=1.5;
+    sctx.beginPath();
+    const r = Math.hypot(pl.pos.x, pl.pos.y);
+    const p = w2s(pl.pos);
+    sctx.moveTo(p.x, p.y);
+    sctx.lineTo(p.x, p.y); sctx.stroke();
+
+    // area wedges
+    if (params.showAreas){
+      sctx.fillStyle = pl.color+'33';
+      for (const seg of pl.sweeps){
+        if (!seg.p1) continue;
+        const a = w2s(seg.p0), b = w2s(seg.p1);
+        sctx.beginPath();
+        sctx.moveTo(S.width/2, S.height/2);
+        sctx.lineTo(a.x, a.y);
+        sctx.lineTo(b.x, b.y);
+        sctx.closePath(); sctx.fill();
+      }
+    }
+    // planet
+    sctx.fillStyle=pl.color; sctx.beginPath(); sctx.arc(p.x,p.y,4,0,Math.PI*2); sctx.fill();
+  }
+
+  // T^2 vs a^3
+  kctx.fillStyle="#0f172a"; kctx.fillRect(0,0,K.width,K.height);
+  kctx.strokeStyle="rgba(148,163,184,.25)"; kctx.lineWidth=1;
+  for (let y=0;y<K.height;y+=30){ kctx.beginPath(); kctx.moveTo(0,y); kctx.lineTo(K.width,y); kctx.stroke(); }
+  // axes labels
+  kctx.fillStyle="rgba(226,232,240,.9)"; kctx.font="12px ui-sans-serif";
+  kctx.fillText("a³ (AU³) →", K.width-90, K.height-10);
+  kctx.save(); kctx.translate(10, 20); kctx.rotate(-Math.PI/2); kctx.fillText("T² (years²) →", 0, 0); kctx.restore();
+
+  const maxA3 = Math.max(...planets.map(p=>(p.a/AU)**3), 1);
+  const maxT2 = Math.max(...planets.map(p=>(p.period/(365*DAY))**2), 1);
+  function px(x){ return 40 + (x/maxA3)*(K.width-60); }
+  function py(y){ return K.height-30 - (y/maxT2)*(K.height-60); }
+  planets.forEach(pl=>{
+    const a3 = (pl.a/AU)**3;
+    const T2 = (pl.period/(365*DAY))**2;
+    kctx.fillStyle = pl.color;
+    kctx.beginPath(); kctx.arc(px(a3), py(T2), 4, 0, Math.PI*2); kctx.fill();
+  });
+}
+
+function loop(){
+  if (running){
+    const dt = params.dt * 86400; // scale sim -> seconds (dt ms ~ days per tick)
+    t += dt;
+    planets.forEach(pl=>{ pl.step(dt); pl.areaStep(dt); });
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+sync(); loop();
+</script>
+</body>
+</html>

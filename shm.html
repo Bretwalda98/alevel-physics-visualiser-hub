@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SHM (Oscillations) — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+  .kbd{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:.4rem; padding:.1rem .35rem}
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">SHM (Oscillations) — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">Mass–spring & pendulum • Energy & phase plots</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div>
+      <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">System</label>
+      <select id="system" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+        <option value="spring" selected>Mass–Spring (horizontal)</option>
+        <option value="pendulum">Simple Pendulum (small‑angle)</option>
+      </select>
+    </div>
+    <div id="springControls" class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Mass m (kg)</label>
+        <input id="m" type="range" min="0.1" max="5" step="0.1" value="1.0" class="w-full">
+        <div class="text-xs text-slate-300">m = <span id="mVal">1.0</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Spring k (N/m)</label>
+        <input id="k" type="range" min="1" max="200" step="1" value="40" class="w-full">
+        <div class="text-xs text-slate-300">k = <span id="kVal">40</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Damping c (kg/s)</label>
+        <input id="c" type="range" min="0" max="3" step="0.05" value="0.10" class="w-full">
+        <div class="text-xs text-slate-300">c = <span id="cVal">0.10</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Drive F₀ sin(ωt)</label>
+        <input id="drive" type="range" min="0" max="20" step="0.5" value="0" class="w-full">
+        <div class="text-xs text-slate-300">F₀ = <span id="driveVal">0.0</span></div>
+      </div>
+      <div class="col-span-2">
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Drive frequency ω (rad/s)</label>
+        <input id="omega" type="range" min="0" max="20" step="0.1" value="6.0" class="w-full">
+        <div class="text-xs text-slate-300">ω = <span id="omegaVal">6.0</span></div>
+      </div>
+    </div>
+
+    <div id="pendControls" class="hidden grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Length L (m)</label>
+        <input id="L" type="range" min="0.2" max="5" step="0.1" value="1.0" class="w-full">
+        <div class="text-xs text-slate-300">L = <span id="LVal">1.0</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">g (m/s²)</label>
+        <input id="g" type="range" min="1" max="20" step="0.1" value="9.81" class="w-full">
+        <div class="text-xs text-slate-300">g = <span id="gVal">9.81</span></div>
+      </div>
+      <div class="col-span-2">
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Damping b (s⁻¹)</label>
+        <input id="b" type="range" min="0" max="1" step="0.01" value="0.02" class="w-full">
+        <div class="text-xs text-slate-300">b = <span id="bVal">0.02</span></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Δt (ms)</label>
+        <input id="dt" type="range" min="5" max="40" step="1" value="16" class="w-full">
+        <div class="text-xs text-slate-300">dt = <span id="dtVal">16</span> ms</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Initial amplitude</label>
+        <input id="x0" type="range" min="-2" max="2" step="0.05" value="0.8" class="w-full">
+        <div class="text-xs text-slate-300">x₀/θ₀ = <span id="x0Val">0.80</span></div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <button id="play" class="btn">▶ Play</button>
+      <button id="pause" class="btn">⏸ Pause</button>
+      <button id="step" class="btn">▮▮▮ Step</button>
+      <button id="reset" class="btn ml-auto">↺ Reset</button>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      Mass–spring: m ẍ + c ẋ + k x = F₀ sin(ωt).<br>
+      Pendulum (small angle): θ̈ + 2b θ̇ + (g/L) θ = 0. Phase plot shows (x, v) or (θ, ω).
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="view" width="1000" height="260" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="section p-3"><div class="text-slate-400 text-xs uppercase mb-1">x(t) or θ(t) • v(t) / ω(t)</div>
+          <canvas id="graph" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3"><div class="text-slate-400 text-xs uppercase mb-1">Energy & Phase</div>
+          <canvas id="energy" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+      </div>
+      <div class="section p-3">
+        <div class="text-slate-400 text-xs uppercase mb-1">Equations</div>
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Mass–spring: ẍ + (c/m) ẋ + (k/m) x = (F₀/m) sin(ωt),  f₀ = (1/2π)√(k/m)
+Energies: K = ½ m v²,  U = ½ k x²,  E = K+U (no drive/damping ⇒ constant)
+Pendulum (small‑angle): θ̈ + 2b θ̇ + (g/L) θ = 0,  T ≈ 2π√(L/g)
+Phase portrait: (x, v) or (θ, ω). Closed ellipse for ideal SHM.
+</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const V = document.getElementById('view').getContext('2d');
+const G1 = document.getElementById('graph').getContext('2d');
+const G2 = document.getElementById('energy').getContext('2d');
+
+let running = true, t=0;
+const state = {
+  system: 'spring',
+  m:1, k:40, c:0.1, F0:0, omg:6,
+  L:1, g:9.81, b:0.02,
+  dt:0.016, x:0.8, v:0, th:0.8, w:0
+};
+
+const ids = s=>document.getElementById(s);
+function sync(){
+  ids('mVal').textContent = state.m.toFixed(1);
+  ids('kVal').textContent = state.k.toFixed(0);
+  ids('cVal').textContent = state.c.toFixed(2);
+  ids('driveVal').textContent = state.F0.toFixed(1);
+  ids('omegaVal').textContent = state.omg.toFixed(1);
+  ids('LVal').textContent = state.L.toFixed(1);
+  ids('gVal').textContent = state.g.toFixed(2);
+  ids('bVal').textContent = state.b.toFixed(2);
+  ids('dtVal').textContent = Math.round(state.dt*1000);
+  ids('x0Val').textContent = (state.system==='spring'?state.x:state.th).toFixed(2);
+}
+ids('system').addEventListener('change', e=>{
+  state.system = e.target.value;
+  document.getElementById('springControls').classList.toggle('hidden', state.system!=='spring');
+  document.getElementById('pendControls').classList.toggle('hidden', state.system!=='pendulum');
+  reset();
+});
+ids('m').addEventListener('input', e=>{ state.m=+e.target.value; sync(); });
+ids('k').addEventListener('input', e=>{ state.k=+e.target.value; sync(); });
+ids('c').addEventListener('input', e=>{ state.c=+e.target.value; sync(); });
+ids('drive').addEventListener('input', e=>{ state.F0=+e.target.value; sync(); });
+ids('omega').addEventListener('input', e=>{ state.omg=+e.target.value; sync(); });
+ids('L').addEventListener('input', e=>{ state.L=+e.target.value; sync(); });
+ids('g').addEventListener('input', e=>{ state.g=+e.target.value; sync(); });
+ids('b').addEventListener('input', e=>{ state.b=+e.target.value; sync(); });
+ids('dt').addEventListener('input', e=>{ state.dt=(+e.target.value)/1000; sync(); });
+ids('x0').addEventListener('input', e=>{
+  if (state.system==='spring') state.x=+e.target.value; else state.th=+e.target.value;
+  sync();
+});
+
+ids('play').addEventListener('click', ()=> running=true);
+ids('pause').addEventListener('click', ()=> running=false);
+ids('step').addEventListener('click', ()=>{ integrate(); draw(); });
+ids('reset').addEventListener('click', reset);
+
+function reset(){
+  t=0;
+  state.x = ids('x0').valueAsNumber || 0.8;
+  state.v = 0;
+  state.th = ids('x0').valueAsNumber || 0.8;
+  state.w = 0;
+  sync(); draw();
+}
+
+function integrate(){
+  const dt = state.dt;
+  if (state.system==='spring'){
+    // m ẍ + c ẋ + k x = F0 sin(ω t)
+    const a = ( -state.c*state.v - state.k*state.x + state.F0*Math.sin(state.omg*t) ) / state.m;
+    state.v += a*dt;
+    state.x += state.v*dt;
+  } else {
+    // θ̈ + 2b θ̇ + (g/L) θ = 0
+    const aa = -2*state.b*state.w - (state.g/state.L)*state.th;
+    state.w += aa*dt;
+    state.th += state.w*dt;
+  }
+  t += dt;
+}
+
+function drawSpring(){
+  const W=1000, H=260;
+  V.fillStyle="#0f172a"; V.fillRect(0,0,W,H);
+  // wall
+  V.fillStyle="#94a3b8"; V.fillRect(40,40,8,H-80);
+  // spring as sinus line
+  const xpix = 140 + state.x*80;
+  V.strokeStyle="#60a5fa"; V.lineWidth=3; V.beginPath();
+  const n=12, L = xpix-48, y=H/2;
+  for (let i=0;i<=n;i++){
+    const xx = 48 + (i/n)*L;
+    const yy = y + Math.sin(i*Math.PI)*16;
+    if (i===0) V.moveTo(xx,yy); else V.lineTo(xx,yy);
+  }
+  V.stroke();
+  // mass
+  V.fillStyle="#22d3ee"; V.strokeStyle="rgba(255,255,255,.5)"; V.lineWidth=2;
+  V.fillRect(xpix, y-24, 60, 48); V.strokeRect(xpix, y-24, 60, 48);
+  // axes
+  V.fillStyle="rgba(226,232,240,.9)"; V.font="12px ui-sans-serif";
+  V.fillText(`x = ${state.x.toFixed(2)} m, v = ${state.v.toFixed(2)} m/s`, 20, 20);
+}
+
+function drawPendulum(){
+  const W=1000, H=260;
+  V.fillStyle="#0f172a"; V.fillRect(0,0,W,H);
+  const cx = W/2, top=40, Lpx = state.L*100;
+  const bobx = cx + Math.sin(state.th)*Lpx, boby = top + Math.cos(state.th)*Lpx;
+  // string
+  V.strokeStyle="#94a3b8"; V.lineWidth=2;
+  V.beginPath(); V.moveTo(cx, top); V.lineTo(bobx, boby); V.stroke();
+  // bob
+  V.fillStyle="#fbbf24"; V.beginPath(); V.arc(bobx, boby, 12, 0, Math.PI*2); V.fill();
+  V.fillStyle="rgba(226,232,240,.9)"; V.font="12px ui-sans-serif";
+  V.fillText(`θ = ${state.th.toFixed(2)} rad, ω = ${state.w.toFixed(2)} rad/s`, 20, 20);
+}
+
+const trail=[];
+function drawGraphs(){
+  const W1=500, H1=180, W2=500, H2=180;
+  // append to trail
+  const sample = (state.system==='spring') ? {x:state.x, v:state.v} : {x:state.th, v:state.w};
+  trail.push({t, ...sample});
+  if (trail.length>1200) trail.shift();
+
+  // time plots
+  G1.fillStyle="#0f172a"; G1.fillRect(0,0,W1,H1);
+  G1.strokeStyle="rgba(148,163,184,.25)"; G1.lineWidth=1;
+  for (let y=0;y<H1;y+=30){ G1.beginPath(); G1.moveTo(0,y); G1.lineTo(W1,y); G1.stroke(); }
+  const tMin = t-10;
+  const seg = trail.filter(d=>d.t>=tMin);
+  const xmax = Math.max(1, ...seg.map(d=>Math.abs(d.x)));
+  const vmax = Math.max(1, ...seg.map(d=>Math.abs(d.v)));
+  function tx(T){ return 40 + ( (T-tMin)/10 )*(W1-60); }
+  function ty(val,maxY,base){ return base - val/maxY*(H1/4); }
+  // x
+  G1.strokeStyle="#60a5fa"; G1.lineWidth=2; G1.beginPath();
+  let first=true;
+  for (const d of seg){ const x=tx(d.t), y=ty(d.x, xmax, H1*0.35); if(first){G1.moveTo(x,y); first=false;} else G1.lineTo(x,y); }
+  G1.stroke();
+  // v
+  G1.strokeStyle="#34d399"; G1.lineWidth=2; G1.beginPath();
+  first=true;
+  for (const d of seg){ const x=tx(d.t), y=ty(d.v, vmax, H1*0.8); if(first){G1.moveTo(x,y); first=false;} else G1.lineTo(x,y); }
+  G1.stroke();
+  G1.fillStyle="rgba(226,232,240,.9)"; G1.font="12px ui-sans-serif";
+  G1.fillText("x(t) / θ(t)", 6, 16); G1.fillText("v(t) / ω(t)", 6, H1*0.5+6);
+
+  // Energy + phase
+  G2.fillStyle="#0f172a"; G2.fillRect(0,0,W2,H2);
+  G2.strokeStyle="rgba(148,163,184,.25)"; G2.lineWidth=1;
+  for (let y=0;y<H2;y+=30){ G2.beginPath(); G2.moveTo(0,y); G2.lineTo(W2,y); G2.stroke(); }
+  let K=0, U=0;
+  if (state.system==='spring'){ K = 0.5*state.m*state.v*state.v; U = 0.5*state.k*state.x*state.x; }
+  else { K = 0.5*(state.w*state.w); U = 0.5*(state.g/state.L)*state.th*state.th; } // scaled
+  const E = K+U;
+  const maxE = Math.max(1, E*1.5);
+  function px(val, i){ return 40 + i*(W2-60)/2; }
+  function py(val){ return H2-30 - (val/maxE)*(H2-60); }
+  // bars
+  G2.fillStyle="#34d399"; G2.fillRect(60, py(K), 40, H2-30 - py(K));
+  G2.fillStyle="#60a5fa"; G2.fillRect(120, py(U), 40, H2-30 - py(U));
+  G2.fillStyle="#fbbf24"; G2.fillRect(180, py(E), 40, H2-30 - py(E));
+  G2.fillStyle="rgba(226,232,240,.9)"; G2.font="12px ui-sans-serif";
+  G2.fillText("K", 72, H2-10); G2.fillText("U", 132, H2-10); G2.fillText("E", 192, H2-10);
+  // phase portrait
+  const cx=340, cy=H2/2, sx=80, sy=80;
+  G2.strokeStyle="#f472b6"; G2.lineWidth=1.5; G2.beginPath();
+  const ph = seg.slice(-300);
+  first=true;
+  for (const d of ph){
+    const x = cx + d.x*sx/Math.max(1, xmax);
+    const y = cy - d.v*sy/Math.max(1, vmax);
+    if (first){ G2.moveTo(x,y); first=false; } else G2.lineTo(x,y);
+  }
+  G2.stroke();
+  G2.fillStyle="rgba(226,232,240,.9)"; G2.fillText("Phase (x, v) / (θ, ω)", cx-40, 16);
+}
+
+function draw(){
+  if (state.system==='spring') drawSpring(); else drawPendulum();
+  drawGraphs();
+}
+
+function loop(){
+  if (running) integrate();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset(); sync(); loop();
+</script>
+</body>
+</html>

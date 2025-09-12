@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SUVAT Kinematics (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  input[type="number"]{ background:rgba(15,23,42,.6); border:1px solid rgba(255,255,255,.12); border-radius:.5rem; padding:.4rem .5rem; width:100%; }
+  label small{ color:#94a3b8 }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">SUVAT Kinematics</h1>
+    <div class="ml-auto text-sm text-slate-300">Solve u, v, a, s, t under constant acceleration</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide mb-1">Initial velocity u (m/s) <small>(blank = unknown)</small></label>
+        <input id="u" type="number" step="any" placeholder="">
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide mb-1">Final velocity v (m/s) <small>(blank = unknown)</small></label>
+        <input id="v" type="number" step="any" placeholder="">
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide mb-1">Acceleration a (m/s²) <small>(blank = unknown)</small></label>
+        <input id="a" type="number" step="any" placeholder="">
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide mb-1">Displacement s (m) <small>(blank = unknown)</small></label>
+        <input id="s" type="number" step="any" placeholder="">
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide mb-1">Time t (s) <small>(blank = unknown)</small></label>
+        <input id="t" type="number" step="any" placeholder="">
+      </div>
+      <div class="flex items-end gap-2">
+        <button id="solve" class="btn w-full">= Solve unknowns</button>
+        <button id="clear" class="btn">✖</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide mb-1">Animate for T (s)</label>
+        <input id="simT" type="number" step="any" value="5">
+      </div>
+      <div class="flex items-end gap-2">
+        <button id="play" class="btn">▶</button>
+        <button id="pause" class="btn">⏸</button>
+        <button id="reset" class="btn ml-auto">↺</button>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      Core relations (constant a):<br>
+      1) v = u + a t &nbsp;&nbsp; 2) s = ut + ½ a t² &nbsp;&nbsp; 3) v² = u² + 2 a s &nbsp;&nbsp; 4) s = ½ (u+v) t
+    </div>
+    <div id="notes" class="text-xs text-rose-300"></div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="track" width="1000" height="120" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-3 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">s(t)</div>
+          <canvas id="gs" width="300" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">v(t)</div>
+          <canvas id="gv" width="300" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">a(t)</div>
+          <canvas id="ga" width="300" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+      </div>
+      <div id="readouts" class="text-sm font-mono px-2"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const ids = s => document.getElementById(s);
+const fields = ['u','v','a','s','t'];
+const state = { u:NaN, v:NaN, a:NaN, s:NaN, t:NaN, simT:5 };
+const notes = ids('notes');
+
+fields.forEach(k=> ids(k).addEventListener('input', ()=>{
+  const val = ids(k).value.trim();
+  state[k] = (val===''? NaN : +val);
+}));
+ids('simT').addEventListener('input', ()=> state.simT = +ids('simT').value);
+
+ids('clear').addEventListener('click', ()=>{
+  fields.forEach(k=>{ ids(k).value=''; state[k]=NaN; });
+  notes.textContent='';
+  drawAll();
+});
+
+ids('solve').addEventListener('click', ()=>{
+  const solved = solveSUVAT({...state});
+  Object.assign(state, solved.state);
+  // present numbers nicely
+  fields.forEach(k=>{ ids(k).value = isFinite(state[k])? (Math.abs(state[k])<1e-3? state[k].toExponential(2): state[k].toFixed(4).replace(/\.?0+$/,'') ): '' });
+  notes.innerHTML = solved.warn.join('<br>');
+  drawAll();
+});
+
+function knownCount(st){ return fields.filter(k=> Number.isFinite(st[k])).length; }
+function quadSolve(A,B,C){
+  const disc=B*B-4*A*C;
+  if (disc<0) return [];
+  if (Math.abs(A)<1e-12){
+    if (Math.abs(B)<1e-12) return [];
+    return [-C/B];
+  }
+  const r1=(-B+Math.sqrt(disc))/(2*A), r2=(-B-Math.sqrt(disc))/(2*A);
+  return [r1,r2];
+}
+function solveSUVAT(st){
+  const warn=[];
+  const isKnown=k=> Number.isFinite(st[k]);
+  if (knownCount(st)<3){ warn.push('Enter at least 3 knowns.'); return {state:st, warn}; }
+
+  // Convenience
+  let {u,v,a,s,t} = st;
+
+  // Direct combos
+  const set = (obj)=>{ Object.assign(st,obj); u=st.u; v=st.v; a=st.a; s=st.s; t=st.t; };
+
+  // Case handling
+  if (isKnown('u') && isKnown('a') && isKnown('t')){
+    set({ v: u + a*t, s: u*t + 0.5*a*t*t });
+  }
+  else if (isKnown('u') && isKnown('v') && isKnown('t')){
+    const a2 = (v-u)/t;
+    set({ a:a2, s: 0.5*(u+v)*t });
+  }
+  else if (isKnown('u') && isKnown('v') && isKnown('a')){
+    const t2 = (Math.abs(a)>1e-12)? (v-u)/a : NaN;
+    set({ t:t2, s: (Math.abs(a)>1e-12)? (v*v - u*u)/(2*a) : (warn.push('a≈0 → use s≈u t (need t)'), st.s) });
+  }
+  else if (isKnown('v') && isKnown('a') && isKnown('t')){
+    const u2 = v - a*t;
+    set({ u:u2, s: u2*t + 0.5*a*t*t });
+  }
+  else if (isKnown('u') && isKnown('a') && isKnown('s')){
+    const v2sq = u*u + 2*a*s;
+    const v2 = v2sq>=0 ? Math.sign(u + a*Math.sign(s))*Math.sqrt(v2sq) : NaN;
+    const roots = quadSolve(0.5*a, u, -s).filter(x=> x>=0);
+    const t2 = roots.length? Math.min(...roots) : NaN;
+    set({ v:v2, t:t2 });
+    if (roots.length>1) warn.push('Two possible times from quadratic; taking the smaller positive root.');
+  }
+  else if (isKnown('v') && isKnown('a') && isKnown('s')){
+    const u2sq = v*v - 2*a*s;
+    let u2 = NaN;
+    if (u2sq>=0){
+      // choose u consistent with t positive
+      const root = Math.sqrt(u2sq);
+      const tA = (Math.abs(a)>1e-12)? (v - (+root))/a : NaN;
+      const tB = (Math.abs(a)>1e-12)? (v - (-root))/a : NaN;
+      u2 = (tA>0 && (tA<=tB || tB<=0))? +root : -root;
+    }
+    const roots = quadSolve(0.5*a, u2||0, -s).filter(x=> x>=0);
+    const t2 = (Math.abs(a)>1e-12)? ((v - u2)/a) : (warn.push('a≈0 → t≈s/u (need u≠0)'), NaN);
+    set({ u:u2, t:t2 });
+  }
+  else if (isKnown('u') && isKnown('v') && isKnown('s')){
+    const a2 = (Math.abs(s)>1e-12)? (v*v - u*u)/(2*s) : NaN;
+    const t2 = (Math.abs(a2)>1e-12)? (v - u)/a2 : (Math.abs(u)>1e-12? s/u : NaN);
+    set({ a:a2, t:t2 });
+  }
+  else if (isKnown('u') && isKnown('s') && isKnown('t')){
+    const a2 = 2*(s - u*t)/(t*t);
+    set({ a:a2, v:u + a2*t });
+  }
+  else if (isKnown('v') && isKnown('s') && isKnown('t')){
+    const a2 = 2*(v*t - s)/(t*t);
+    set({ a:a2, u:v - a2*t });
+  }
+  else{
+    // Fallback: try to infer with any quadratic possibilities
+    // If u,a known and one of v,s,t known, derive others
+    if (isKnown('u') && isKnown('a') && isKnown('v') && !isKnown('t')) set({ t:(v-u)/a });
+    if (isKnown('u') && isKnown('a') && isKnown('s') && !isKnown('t')){
+      const roots = quadSolve(0.5*a, u, -s).filter(x=>x>=0);
+      set({ t: roots.length? Math.min(...roots) : NaN });
+    }
+    if (isKnown('u') && isKnown('t') && isKnown('s') && !isKnown('a')) set({ a: 2*(s - u*t)/(t*t) });
+    if (isKnown('v') && isKnown('t') && isKnown('s') && !isKnown('a')) set({ a: 2*(v*t - s)/(t*t) });
+  }
+
+  // Consistency check
+  const check1 = (Number.isFinite(st.u) && Number.isFinite(st.a) && Number.isFinite(st.t))? (st.v - (st.u + st.a*st.t)) : 0;
+  const check2 = (Number.isFinite(st.u) && Number.isFinite(st.a) && Number.isFinite(st.t))? (st.s - (st.u*st.t + 0.5*st.a*st.t*st.t)) : 0;
+  const check3 = (Number.isFinite(st.u) && Number.isFinite(st.a) && Number.isFinite(st.s))? (st.v*st.v - (st.u*st.u + 2*st.a*st.s)) : 0;
+  const tol = 1e-6;
+  if (Math.abs(check1)>tol || Math.abs(check2)>tol || Math.abs(check3)>1e-4){
+    warn.push('Note: inputs imply slight inconsistency; computed values satisfy SUVAT identities.');
+  }
+
+  return {state:st, warn};
+}
+
+// Animation & graphs
+const Track = ids('track').getContext('2d');
+const Gs = ids('gs').getContext('2d');
+const Gv = ids('gv').getContext('2d');
+const Ga = ids('ga').getContext('2d');
+const out = ids('readouts');
+let running=false, tNow=0;
+ids('play').addEventListener('click', ()=> running=true);
+ids('pause').addEventListener('click', ()=> running=false);
+ids('reset').addEventListener('click', ()=>{ tNow=0; drawAll(); });
+
+function kinematicsAt(t){
+  const {u,a} = state;
+  const v = u + a*t;
+  const s = u*t + 0.5*a*t*t;
+  return {s,v,a};
+}
+
+function drawTrack(){
+  const W=Track.canvas.width, H=Track.canvas.height;
+  Track.fillStyle="#0f172a"; Track.fillRect(0,0,W,H);
+  Track.strokeStyle="rgba(148,163,184,.5)"; Track.beginPath(); Track.moveTo(40,H/2); Track.lineTo(W-20,H/2); Track.stroke();
+  if (!Number.isFinite(state.u) || !Number.isFinite(state.a)) return;
+  const T = Number.isFinite(state.t)? state.t : state.simT;
+  const {s:send} = kinematicsAt(T);
+  const scale = (W-140) / (Math.max(1e-6, Math.abs(send)) + 1); // m → pixels
+  // ticks
+  Track.fillStyle="rgba(226,232,240,.6)"; Track.font="12px ui-sans-serif";
+  for (let m=-5;m<=5;m++){
+    const x = W/2 + m*scale;
+    Track.fillRect(x, H/2-6, 1, 12);
+  }
+  // object
+  const {s,v,a} = kinematicsAt(tNow);
+  const x = W/2 + s*scale;
+  Track.fillStyle="#60a5fa"; Track.beginPath(); Track.arc(x,H/2-12,8,0,Math.PI*2); Track.fill();
+  // vectors
+  Track.strokeStyle="#34d399"; Track.beginPath(); Track.moveTo(x,H/2-12); Track.lineTo(x + Math.sign(v)*Math.min(60, Math.abs(v)*8), H/2-12); Track.stroke();
+  Track.strokeStyle="#fbbf24"; Track.beginPath(); Track.moveTo(x,H/2-12+2); Track.lineTo(x + Math.sign(a)*Math.min(60, Math.abs(a)*8), H/2-12+2); Track.stroke();
+  // legend
+  Track.fillStyle="rgba(226,232,240,.9)"; Track.fillText("velocity (green), acceleration (yellow)", 40, 24);
+}
+
+function plot(ctx, fnLabel, sampler, ymin, ymax){
+  const W=ctx.canvas.width, H=ctx.canvas.height;
+  ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.strokeStyle="rgba(148,163,184,.6)"; ctx.beginPath(); ctx.moveTo(40,10); ctx.lineTo(40,H-30); ctx.lineTo(W-20,H-30); ctx.stroke();
+  ctx.fillStyle="rgba(226,232,240,.9)"; ctx.font="12px ui-sans-serif"; ctx.fillText(fnLabel, W-70, H-10);
+  const T = Number.isFinite(state.t)? state.t : state.simT;
+  const N=200;
+  ctx.strokeStyle="#60a5fa"; ctx.lineWidth=2; ctx.beginPath();
+  for (let i=0;i<=N;i++){
+    const tt = (i/N)*T;
+    const val = sampler(tt);
+    const x = 40 + (tt/T)*(W-60);
+    const y = (H-30) - ((val - ymin)/(ymax - ymin))*(H-60);
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+}
+
+function drawGraphs(){
+  if (!Number.isFinite(state.u) || !Number.isFinite(state.a)) { // nothing to graph
+    [Gs,Gv,Ga].forEach(ctx=>{
+      ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+      ctx.fillStyle="rgba(226,232,240,.6)"; ctx.font="12px ui-sans-serif";
+      ctx.fillText("Enter u, a, and either t or sim T", 20, 24);
+    });
+    return;
+  }
+  const T = Number.isFinite(state.t)? state.t : state.simT;
+  const {s:send, v:vend} = kinematicsAt(T);
+  const smin=Math.min(0, send), smax=Math.max(0, send);
+  plot(Gs, "t (s)", t=> kinematicsAt(t).s, smin - 0.05*Math.abs(smax-smin+1), smax + 0.05*Math.abs(smax-smin+1));
+  const vmax = Math.max(Math.abs(state.u), Math.abs(vend));
+  plot(Gv, "t (s)", t=> kinematicsAt(t).v, -vmax*1.1, vmax*1.1);
+  plot(Ga, "t (s)", t=> state.a, -Math.abs(state.a)*1.2 - 0.1, Math.abs(state.a)*1.2 + 0.1);
+}
+
+function drawReadouts(){
+  const parts=[];
+  fields.forEach(k=>{
+    if (Number.isFinite(state[k])) parts.push(`${k}=${state[k].toFixed(4).replace(/\.?0+$/,'')}`);
+  });
+  out.textContent = parts.join('   ');
+}
+
+function drawAll(){ drawTrack(); drawGraphs(); drawReadouts(); }
+function loop(){
+  if (running){
+    const T = Number.isFinite(state.t)? state.t : state.simT;
+    tNow += 0.016;
+    if (tNow > T) tNow = T;
+  }
+  drawAll();
+  requestAnimationFrame(loop);
+}
+drawAll(); loop();
+</script>
+</body>
+</html>

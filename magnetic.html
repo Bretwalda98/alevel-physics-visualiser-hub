@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Magnetic Force & Motion (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Magnetic Force & Motion</h1>
+    <div class="ml-auto text-sm text-slate-300">qvB • Circular / helical motion • Velocity selector</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Charge q (e units)</label>
+        <input id="q" type="range" min="-3" max="3" step="1" value="-1" class="w-full">
+        <div class="text-xs text-slate-300">q = <span id="qVal">-1</span> e</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Speed v (×10⁶ m/s)</label>
+        <input id="v" type="range" min="0.1" max="10" step="0.1" value="3" class="w-full">
+        <div class="text-xs text-slate-300">v = <span id="vVal">3.0</span> ×10⁶ m/s</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">B (tesla)</label>
+        <input id="B" type="range" min="0" max="2" step="0.01" value="0.5" class="w-full">
+        <div class="text-xs text-slate-300">B = <span id="BVal">0.50</span> T</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Pitch angle (°)</label>
+        <input id="pitch" type="range" min="0" max="90" step="1" value="20" class="w-full">
+        <div class="text-xs text-slate-300">α = <span id="pitchVal">20</span>°</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Mass m (×10⁻²⁷ kg)</label>
+        <input id="m" type="range" min="0.1" max="200" step="0.1" value="1.67" class="w-full">
+        <div class="text-xs text-slate-300">m = <span id="mVal">1.67</span> ×10⁻²⁷ kg</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Selector: E (kV/m)</label>
+        <input id="E" type="range" min="0" max="50" step="1" value="0" class="w-full">
+        <div class="text-xs text-slate-300">E = <span id="EVal">0</span> kV/m</div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <button id="run" class="btn">▶ Animate</button>
+      <button id="pause" class="btn">⏸ Pause</button>
+      <button id="reset" class="btn ml-auto">↺ Reset</button>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      Magnetic force magnitude: F = |q| v⊥ B. Radius in a uniform B (perpendicular): r = m v⊥ / (|q| B). In crossed fields (E ⟂ B), a velocity selector passes v = E/B.
+    </div>
+  </aside>
+
+  <section class="section p-3 grid gap-3">
+    <canvas id="scene" width="1000" height="380" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+    <div id="readouts" class="text-sm font-mono px-2"></div>
+  </section>
+</main>
+
+<script>
+const C=document.getElementById('scene'); const ctx=C.getContext('2d');
+const out=document.getElementById('readouts');
+let running=false, t=0;
+const st = { q:-1, v:3e6, B:0.5, pitch:20, m:1.67e-27, E:0 };
+const echarge = 1.602176634e-19;
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('qVal').textContent = st.q.toFixed(0);
+  ids('vVal').textContent = (st.v/1e6).toFixed(1);
+  ids('BVal').textContent = st.B.toFixed(2);
+  ids('pitchVal').textContent = st.pitch.toFixed(0);
+  ids('mVal').textContent = (st.m/1e-27).toFixed(2);
+  ids('EVal').textContent = (st.E).toFixed(0);
+}
+['q','v','B','pitch','m','E'].forEach(id=> ids(id).addEventListener('input', e=>{
+  if (id==='q') st.q=+e.target.value;
+  else if (id==='v') st.v=(+e.target.value)*1e6;
+  else if (id==='B') st.B=+e.target.value;
+  else if (id==='pitch') st.pitch=+e.target.value;
+  else if (id==='m') st.m=(+e.target.value)*1e-27;
+  else if (id==='E') st.E=(+e.target.value);
+  sync(); draw();
+}));
+ids('run').addEventListener('click', ()=> running=true);
+ids('pause').addEventListener('click', ()=> running=false);
+ids('reset').addEventListener('click', reset);
+
+let pos, vel;
+function reset(){
+  t=0; running=false;
+  const ang = st.pitch*Math.PI/180;
+  const vperp = st.v*Math.sin(ang), vpar = st.v*Math.cos(ang);
+  pos = {x:200, y:C.height/2, z:0};
+  vel = {x:0, y:-vperp, z:vpar}; // z is along B (into screen)
+  draw();
+}
+reset(); sync();
+
+function step(dt){
+  // B along +z, E along +y (for selector)
+  const qC = st.q*echarge, B=st.B, E=st.E*1e3;
+  const vperp = {x:vel.x, y:vel.y, z:0};
+  // Lorentz force: q(E + v × B)
+  const vxB = { x: vperp.y*B - 0*B, y: 0*B - vperp.x*B, z: vperp.x*0 - vperp.y*0 };
+  const ax = (qC*(E*0 + vxB.x))/st.m;
+  const ay = (qC*(E + vxB.y))/st.m;
+  const az = 0; // we ignore z-accel (uniform fields)
+  vel.x += ax*dt; vel.y += ay*dt; vel.z += az*dt;
+  pos.x += vel.x*dt*1e-6; pos.y += vel.y*dt*1e-6; pos.z += vel.z*dt*1e-6;
+  t += dt;
+}
+
+const trail=[];
+function draw(){
+  const W=C.width,H=C.height;
+  ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,W,H);
+  // show B (× symbols) and E arrows (selector region)
+  ctx.strokeStyle="rgba(148,163,184,.25)";
+  for (let y=40;y<H-40;y+=30){
+    for (let x=40;x<W-40;x+=30){
+      ctx.beginPath(); ctx.moveTo(x-6,y-6); ctx.lineTo(x+6,y+6);
+      ctx.moveTo(x-6,y+6); ctx.lineTo(x+6,y-6); ctx.stroke();
+    }
+  }
+  if (st.E>0){
+    ctx.strokeStyle="#fbbf24";
+    for (let x=60;x<W-60;x+=80){
+      ctx.beginPath(); ctx.moveTo(x,30); ctx.lineTo(x,60); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x,30); ctx.lineTo(x-6,42); ctx.lineTo(x+6,42); ctx.closePath(); ctx.fillStyle="#fbbf24"; ctx.fill();
+    }
+  }
+  // particle
+  ctx.fillStyle= st.q>=0 ? "#60a5fa" : "#f87171";
+  ctx.beginPath(); ctx.arc(pos.x,pos.y,6,0,Math.PI*2); ctx.fill();
+  // trail
+  trail.push({x:pos.x,y:pos.y}); if (trail.length>600) trail.shift();
+  ctx.strokeStyle="rgba(96,165,250,.6)"; ctx.beginPath();
+  trail.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }); ctx.stroke();
+
+  // readouts
+  const qC = Math.abs(st.q)*echarge;
+  const ang = st.pitch*Math.PI/180;
+  const vperp = st.v*Math.sin(ang);
+  const r = (st.B>0 && qC>0) ? st.m*vperp/(qC*st.B) : Infinity;
+  const selectorV = (st.B>0)? (st.E*1e3/st.B) : 0;
+  out.textContent = `r ≈ ${isFinite(r)? r.toExponential(2):"∞"} m   v⊥ = ${(vperp/1e6).toFixed(2)}×10⁶ m/s   selector pass speed v=E/B ≈ ${(selectorV/1e6).toFixed(2)}×10⁶ m/s`;
+}
+function loop(){
+  if (running) step(0.016);
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

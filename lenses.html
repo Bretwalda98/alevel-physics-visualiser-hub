@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lenses & Ray Diagrams (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Lenses & Ray Diagrams</h1>
+    <div class="ml-auto text-sm text-slate-300">Thin lens equation • Real/virtual images • Magnification</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Lens</label>
+        <select id="type" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+          <option value="convex" selected>Converging (convex)</option>
+          <option value="concave">Diverging (concave)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Focal length f (cm)</label>
+        <input id="f" type="range" min="-50" max="50" step="1" value="20" class="w-full">
+        <div class="text-xs text-slate-300">f = <span id="fVal">20</span> cm</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Object distance u (cm)</label>
+        <input id="u" type="range" min="5" max="120" step="1" value="60" class="w-full">
+        <div class="text-xs text-slate-300">u = <span id="uVal">60</span> cm</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Object height h (cm)</label>
+        <input id="h" type="range" min="1" max="40" step="1" value="12" class="w-full">
+        <div class="text-xs text-slate-300">h = <span id="hVal">12</span> cm</div>
+      </div>
+    </div>
+    <div class="text-xs text-slate-300 leading-6">
+      Thin lens: 1/f = 1/v + 1/u (sign convention: f>0 for converging, f&lt;0 for diverging). Magnification m = v/u = h'/h.
+    </div>
+  </aside>
+
+  <section class="section p-3 grid gap-3">
+    <canvas id="optics" width="1000" height="380" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+    <div id="readouts" class="text-sm font-mono px-2"></div>
+  </section>
+</main>
+
+<script>
+const C=document.getElementById('optics'); const ctx=C.getContext('2d');
+const out = document.getElementById('readouts');
+const st = { type:'convex', f:20, u:60, h:12 };
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('fVal').textContent = st.f.toFixed(0);
+  ids('uVal').textContent = st.u.toFixed(0);
+  ids('hVal').textContent = st.h.toFixed(0);
+}
+ids('type').addEventListener('change', e=>{ st.type=e.target.value; if(st.type==='concave' && st.f>0) st.f=-st.f; draw(); });
+ids('f').addEventListener('input', e=>{ st.f=+e.target.value; if(st.type==='convex' && st.f<0) st.f=Math.abs(st.f); if(st.type==='concave' && st.f>0) st.f=-Math.abs(st.f); sync(); draw(); });
+['u','h'].forEach(id=> ids(id).addEventListener('input', e=>{ st[id]=+e.target.value; sync(); draw(); }));
+
+function draw(){
+  const W=C.width,H=C.height, mid=H/2, lensX=W/2;
+  ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,W,H);
+  // axis
+  ctx.strokeStyle="rgba(148,163,184,.5)"; ctx.beginPath(); ctx.moveTo(0,mid); ctx.lineTo(W,mid); ctx.stroke();
+  // lens
+  ctx.fillStyle="#60a5fa"; ctx.fillRect(lensX-2, mid-120, 4, 240);
+  // focal points
+  const fpx = lensX + st.f*4; // scale: 4 px per cm
+  ctx.fillStyle="#fbbf24"; ctx.beginPath(); ctx.arc(fpx, mid, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(2*lensX-fpx, mid, 4, 0, Math.PI*2); ctx.fill();
+
+  // object
+  const objX = lensX - st.u*4, objY = mid - st.h*4;
+  ctx.strokeStyle="#e2e8f0"; ctx.lineWidth=2; ctx.beginPath();
+  ctx.moveTo(objX, mid); ctx.lineTo(objX, objY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(objX, objY); ctx.lineTo(objX-12, objY+12); ctx.stroke();
+  // calculate image distance v from lens formula
+  const u = st.u, f = st.f;
+  let v = 1/(1/f - 1/u); // cm, sign can be ±
+  // image height
+  const m = v/u, hi = m*st.h;
+  const imgX = lensX + v*4, imgY = mid - hi*4;
+
+  // principal rays
+  ctx.strokeStyle="#34d399"; ctx.lineWidth=2;
+  function ray(ax,ay,bx,by, dash=false){
+    if (dash) ctx.setLineDash([5,5]); else ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // Ray 1: parallel -> through focus (real or virtual)
+  ray(objX, objY, lensX, objY);
+  const through = st.type==='convex' ? fpx : 2*lensX - fpx; // for concave, appears from focus
+  ray(lensX, objY, fpx, mid); // show direction to focal point
+  // Ray 2: through centre
+  ray(objX, objY, lensX+400, mid + ( (lensX+400 - objX)*(objY-mid)/(lensX-objX) ));
+
+  // image (draw real as solid, virtual as dashed)
+  const real = (st.type==='convex' && v>0) || (st.type==='concave' && v<0);
+  ctx.strokeStyle = real? "#f472b6" : "#f472b688";
+  ctx.setLineDash(real? [] : [6,6]);
+  ctx.beginPath(); ctx.moveTo(imgX, mid); ctx.lineTo(imgX, imgY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // readouts
+  out.textContent = `f=${f.toFixed(1)} cm   u=${u.toFixed(1)} cm   v=${v.toFixed(1)} cm   m=${m.toFixed(2)}   image: ${real?"real":"virtual"} ${m<0?"(inverted)":""}`;
+}
+sync(); draw();
+</script>
+</body>
+</html>

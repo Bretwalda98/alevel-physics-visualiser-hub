@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electric Fields & Potential — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: pixelated; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Electric Fields & Potential — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">Drag charges • Field lines & equipotentials</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1"># Charges</label>
+        <input id="N" type="range" min="1" max="5" step="1" value="2" class="w-full">
+        <div class="text-xs text-slate-300">N = <span id="NVal">2</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Probe on/off</label>
+        <input id="probeToggle" type="checkbox" checked>
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Equipotential spacing</label>
+      <input id="eqstep" type="range" min="0.2" max="3" step="0.1" value="1.0" class="w-full">
+      <div class="text-xs text-slate-300">ΔV ≈ <span id="eqVal">1.0</span> (arb.)</div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Field line count</label>
+        <input id="nlines" type="range" min="8" max="80" step="2" value="24" class="w-full">
+        <div class="text-xs text-slate-300">Nₗ = <span id="nlinesVal">24</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Resolution</label>
+        <input id="res" type="range" min="1" max="4" step="1" value="2" class="w-full">
+        <div class="text-xs text-slate-300">step = <span id="resVal">2</span> px</div>
+      </div>
+    </div>
+    <div class="text-xs text-slate-300 leading-6">
+      Potential: V = Σ k q / r. Field: E = −∇V (vector sum). Field lines start on + charges and end on − charges. Equipotentials are contours of constant V.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 relative">
+      <canvas id="field" width="1000" height="520" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div id="probe" class="absolute top-3 right-3 text-xs text-slate-300 bg-slate-800/70 rounded px-2 py-1"></div>
+    </div>
+    <div class="section p-3">
+      <div class="text-slate-400 text-xs uppercase mb-1">Equations</div>
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Point charges qᵢ at rᵢ:
+  V(r) = k Σ qᵢ / |r − rᵢ|
+  E(r) = k Σ qᵢ (r − rᵢ) / |r − rᵢ|³   (vector)
+Field lines follow dr/ds ∥ E. Equipotentials are everywhere perpendicular to E.
+Superposition applies: fields and potentials add.
+</pre>
+    </div>
+  </section>
+</main>
+
+<script>
+const C = document.getElementById('field');
+const ctx = C.getContext('2d');
+
+const state = {
+  N:2, eq:1.0, nlines:24, res:2, probe:true
+};
+const charges = []; // {x,y,q}
+const ppm = 1; // screen pixels as units
+
+function initCharges(){
+  charges.length=0;
+  const midx=C.width/2, midy=C.height/2, d=120;
+  for (let i=0;i<state.N;i++){
+    const sign = (i%2===0)? 1 : -1;
+    charges.push({x:midx + (i-(state.N-1)/2)*d, y:midy, q: 2*sign});
+  }
+}
+initCharges();
+
+// controls
+const ids = s=>document.getElementById(s);
+function sync(){
+  ids('NVal').textContent = state.N.toString();
+  ids('eqVal').textContent = state.eq.toFixed(1);
+  ids('nlinesVal').textContent = state.nlines.toString();
+  ids('resVal').textContent = state.res.toString();
+  document.getElementById('probeToggle').checked = state.probe;
+}
+ids('N').addEventListener('input', e=>{ state.N=+e.target.value; initCharges(); sync(); });
+ids('eqstep').addEventListener('input', e=>{ state.eq=+e.target.value; sync(); });
+ids('nlines').addEventListener('input', e=>{ state.nlines=+e.target.value; sync(); });
+ids('res').addEventListener('input', e=>{ state.res=+e.target.value; sync(); });
+ids('probeToggle').addEventListener('change', e=>{ state.probe=e.target.checked; });
+
+// physics helpers
+function E(x,y){
+  let Ex=0, Ey=0;
+  for (const c of charges){
+    const dx = x-c.x, dy=y-c.y;
+    const r2 = dx*dx+dy*dy + 1e-6;
+    const r = Math.sqrt(r2);
+    const kq = c.q;
+    Ex += kq * dx / (r2*r);
+    Ey += kq * dy / (r2*r);
+  }
+  return {x:Ex, y:Ey};
+}
+function Vpot(x,y){
+  let V=0;
+  for (const c of charges){
+    const dx = x-c.x, dy=y-c.y;
+    const r = Math.hypot(dx,dy)+1e-6;
+    V += c.q / r;
+  }
+  return V;
+}
+
+// dragging charges
+let drag=-1;
+C.addEventListener('mousedown', e=>{
+  const r=C.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
+  for (let i=0;i<charges.length;i++){
+    const d=(charges[i].x-mx)**2+(charges[i].y-my)**2;
+    if (d<12**2){ drag=i; break; }
+  }
+});
+window.addEventListener('mouseup', ()=> drag=-1);
+window.addEventListener('mousemove', e=>{
+  if (drag<0) return;
+  const r=C.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
+  charges[drag].x=mx; charges[drag].y=my;
+});
+
+function drawEquipotentials(){
+  const step = state.res;
+  const img = ctx.createImageData(C.width, C.height);
+  const data = img.data;
+  // compute potential and map to colour via sine palette
+  for (let y=0;y<C.height;y+=step){
+    for (let x=0;x<C.width;x+=step){
+      const V = Vpot(x,y);
+      const v = (Math.sin(V/state.eq)+1)/2;
+      const R = Math.floor(30 + 200*v);
+      const G = Math.floor(30 + 200*(1-v));
+      const B = 220;
+      for (let oy=0; oy<step; oy++) for (let ox=0; ox<step; ox++){
+        const idx = ((y+oy)*C.width + (x+ox))*4;
+        data[idx]=R; data[idx+1]=G; data[idx+2]=B; data[idx+3]=255;
+      }
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+
+function drawFieldLines(){
+  // start from + charges, evenly spaced angles
+  ctx.strokeStyle="rgba(248,250,252,.9)"; ctx.lineWidth=1.2;
+  for (const c of charges){
+    if (c.q<=0) continue;
+    for (let i=0;i<state.nlines;i++){
+      const ang = i/state.nlines*2*Math.PI;
+      let x=c.x + Math.cos(ang)*6, y=c.y + Math.sin(ang)*6;
+      ctx.beginPath(); ctx.moveTo(x,y);
+      for (let s=0;s<1200;s++){
+        const e = E(x,y);
+        const len = Math.hypot(e.x,e.y)+1e-9;
+        x += (e.x/len)*3;
+        y += (e.y/len)*3;
+        ctx.lineTo(x,y);
+        // stop near a negative charge or out of bounds
+        if (x<2||y<2||x>C.width-2||y>C.height-2) break;
+        for (const d of charges){
+          if (d.q>=0) continue;
+          if ((d.x-x)**2+(d.y-y)**2 < 10**2){ s=9999; break; }
+        }
+      }
+      ctx.stroke();
+    }
+  }
+}
+
+function drawCharges(){
+  for (const c of charges){
+    ctx.fillStyle = c.q>0 ? "#60a5fa" : "#f87171";
+    ctx.beginPath(); ctx.arc(c.x,c.y,8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="rgba(15,23,42,.9)"; ctx.font="12px ui-sans-serif";
+    ctx.fillText(c.q>0?"+":"−", c.x-4, c.y+4);
+  }
+}
+
+function drawProbe(){
+  if (!state.probe) { document.getElementById('probe').textContent=""; return; }
+  C.onmousemove = (e)=>{
+    const r=C.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
+    const evec = E(mx,my); const v=Vpot(mx,my);
+    document.getElementById('probe').textContent = `V≈${v.toFixed(2)}  |E|≈${Math.hypot(evec.x,evec.y).toFixed(2)}  Ex≈${evec.x.toFixed(2)}  Ey≈${evec.y.toFixed(2)}`;
+  };
+}
+
+function render(){
+  ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,C.width,C.height);
+  drawEquipotentials();
+  drawFieldLines();
+  drawCharges();
+  drawProbe();
+  requestAnimationFrame(render);
+}
+sync(); render();
+</script>
+</body>
+</html>

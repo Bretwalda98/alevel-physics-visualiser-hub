@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Thermal Physics Lab (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  .tab{ cursor:pointer; padding:.5rem .8rem; border-radius:.6rem; border:1px solid rgba(255,255,255,.12); }
+  .tab.active{ background:rgba(255,255,255,.10) }
+  input[type="number"], select{ background:rgba(15,23,42,.6); border:1px solid rgba(255,255,255,.12); border-radius:.5rem; padding:.4rem .5rem; width:100%; }
+  canvas{ image-rendering: crisp-edges; }
+  code{ background:rgba(248,250,252,.05); padding:.1rem .3rem; border-radius:.3rem; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Thermal Physics Lab</h1>
+    <div class="ml-auto text-sm text-slate-300">PV processes • First Law • Heating curves • Calorimetry • Conduction</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4">
+  <div class="flex flex-wrap gap-2">
+    <button data-tab="pv" class="tab active">PV & First Law</button>
+    <button data-tab="heating" class="tab">Heating & Phase Change</button>
+    <button data-tab="cal" class="tab">Calorimetry Mixer</button>
+    <button data-tab="cond" class="tab">Thermal Conduction</button>
+  </div>
+
+  <!-- PV TAB -->
+  <section id="tab-pv" class="grid gap-4 xl:grid-cols-[360px_1fr]">
+    <aside class="section p-4 space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Moles n</label>
+          <input id="pv-n" type="number" value="1" min="0.01" step="0.01">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">γ (adiabatic index)</label>
+          <select id="pv-gamma">
+            <option value="1.67">1.67 (mono.)</option>
+            <option value="1.40" selected>1.40 (diatomic ~300K)</option>
+            <option value="1.30">1.30</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Initial P (kPa)</label>
+          <input id="pv-P" type="number" value="101.3" step="0.1">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Initial V (L)</label>
+          <input id="pv-V" type="number" value="22.4" step="0.1">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Process</label>
+          <select id="pv-proc">
+            <option value="isothermal" selected>Isothermal</option>
+            <option value="adiabatic">Adiabatic</option>
+            <option value="isobaric">Isobaric</option>
+            <option value="isochoric">Isochoric</option>
+            <option value="polytropic">Polytropic (PV^n)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Process exponent</label>
+          <input id="pv-nexp" type="number" value="1.20" step="0.05">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Final V (L)</label>
+          <input id="pv-Vf" type="number" value="44.8" step="0.1">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Steps</label>
+          <input id="pv-steps" type="number" value="150" step="10">
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button id="pv-run" class="btn">Plot & compute</button>
+        <button id="pv-swap" class="btn">Swap V/Vf</button>
+      </div>
+      <div class="text-xs text-slate-300 leading-6">
+        Ideal gas: <code>PV=nRT</code>. First Law: <code>ΔU = Q − W</code> (work done <em>by</em> gas). For ideal gas, <code>ΔU = n C_V ΔT</code> and for isothermal <code>ΔU=0</code>. Work is area under the PV curve.
+      </div>
+    </aside>
+    <section class="grid gap-4">
+      <div class="section p-3 grid gap-3">
+        <canvas id="pv-plot" width="1000" height="280" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        <div class="grid md:grid-cols-2 gap-3">
+          <div class="section p-3">
+            <div class="text-slate-400 text-xs uppercase mb-1">First Law Breakdown</div>
+            <div id="pv-read" class="text-sm font-mono"></div>
+          </div>
+          <div class="section p-3">
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Process quickies:
+  Isothermal (T const):         W = nRT ln(Vf/Vi),   Q = W,            ΔU = 0
+  Adiabatic (Q = 0):            PV^γ = const,        W = (PfVf − PiVi)/(1−γ),   ΔU = −W
+  Isochoric (V const):          W = 0,               Q = nC_V ΔT,      ΔU = Q
+  Isobaric (P const):           W = P ΔV,            Q = nC_P ΔT,      ΔU = nC_V ΔT
+  Polytropic (PV^n = const):    W = (PfVf − PiVi)/(1−n) (n≠1)
+For ideal gas: C_P − C_V = R,  γ = C_P/C_V.
+</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <!-- HEATING TAB -->
+  <section id="tab-heating" class="hidden grid gap-4 xl:grid-cols-[360px_1fr]">
+    <aside class="section p-4 space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Substance</label>
+          <select id="heat-sub">
+            <option value="water" selected>Water</option>
+            <option value="ice">Ice</option>
+            <option value="aluminium">Aluminium</option>
+            <option value="copper">Copper</option>
+            <option value="ethanol">Ethanol</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Mass m (kg)</label>
+          <input id="heat-m" type="number" value="0.50" step="0.01">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Start T (°C)</label>
+          <input id="heat-Ti" type="number" value="20" step="0.5">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Power P (W)</label>
+          <input id="heat-P" type="number" value="200" step="10">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Duration (min)</label>
+          <input id="heat-min" type="number" value="10" step="0.5">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Include phase change?</label>
+          <select id="heat-phase">
+            <option value="auto" selected>Auto (use L_f, L_v if crossing)</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+      </div>
+      <button id="heat-run" class="btn">Plot heating curve</button>
+      <div class="text-xs text-slate-300 leading-6">
+        Heating: <code>Q = mcΔT</code>. Phase change at melting/boiling uses latent heat: <code>Q = mL</code> (no ΔT). Slope of T–t set by power: <code>dT/dt = P/(mc)</code> until a plateau.
+      </div>
+    </aside>
+    <section class="section p-3 grid gap-3">
+      <canvas id="heat-plot" width="1000" height="300" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div id="heat-read" class="text-sm font-mono"></div>
+    </section>
+  </section>
+
+  <!-- CALORIMETRY TAB -->
+  <section id="tab-cal" class="hidden grid gap-4 xl:grid-cols-[360px_1fr]">
+    <aside class="section p-4 space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">m₁ (kg)</label>
+          <input id="cal-m1" type="number" value="0.20" step="0.01">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">T₁ (°C)</label>
+          <input id="cal-T1" type="number" value="80" step="0.5">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">m₂ (kg)</label>
+          <input id="cal-m2" type="number" value="0.30" step="0.01">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">T₂ (°C)</label>
+          <input id="cal-T2" type="number" value="20" step="0.5">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide mb-1">Specific heat c (J·kg⁻¹·K⁻¹)</label>
+        <select id="cal-c">
+          <option value="4180" selected>Water 4180</option>
+          <option value="900">Aluminium 900</option>
+          <option value="385">Copper 385</option>
+          <option value="2400">Ethanol 2400</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Calorimeter heat cap C_cal (J/K)</label>
+          <input id="cal-C" type="number" value="0" step="10">
+        </div>
+        <div class="flex items-end">
+          <button id="cal-run" class="btn w-full">Solve T_final</button>
+        </div>
+      </div>
+      <div class="text-xs text-slate-300 leading-6">
+        Energy balance: heat lost = heat gained. With same substance: <code>(m₁c)(T₁−T_f) = (m₂c)(T_f−T₂) + C_cal (T_f−T₂)</code>. Solve for <code>T_f</code> (assuming no losses).
+      </div>
+    </aside>
+    <section class="section p-3 grid gap-3">
+      <canvas id="cal-plot" width="1000" height="260" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div id="cal-read" class="text-sm font-mono"></div>
+    </section>
+  </section>
+
+  <!-- CONDUCTION TAB -->
+  <section id="tab-cond" class="hidden grid gap-4 xl:grid-cols-[360px_1fr]">
+    <aside class="section p-4 space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Material</label>
+          <select id="cond-mat">
+            <option value="205" selected>Aluminium (k≈205 W·m⁻¹·K⁻¹)</option>
+            <option value="385">Copper (k≈385)</option>
+            <option value="50">Steel (k≈50)</option>
+            <option value="0.04">Glass wool (k≈0.04)</option>
+            <option value="0.026">Air (k≈0.026)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Area A (cm²)</label>
+          <input id="cond-A" type="number" value="10" step="0.1">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">Thickness L (cm)</label>
+          <input id="cond-L" type="number" value="2" step="0.1">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-wide mb-1">ΔT across (°C)</label>
+          <input id="cond-dT" type="number" value="20" step="0.5">
+        </div>
+      </div>
+      <button id="cond-run" class="btn">Compute heat flow</button>
+      <div class="text-xs text-slate-300 leading-6">
+        Conduction (steady 1‑D): <code>Q̇ = k A ΔT / L</code>. Thermal resistance <code>R_th = L / (kA)</code>; layers in series add like resistors.
+      </div>
+    </aside>
+    <section class="section p-3 grid gap-3">
+      <canvas id="cond-plot" width="1000" height="220" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div id="cond-read" class="text-sm font-mono"></div>
+    </section>
+  </section>
+</main>
+
+<script>
+// Tab logic
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    ['pv','heating','cal','cond'].forEach(t=>{
+      document.getElementById('tab-'+t).classList.toggle('hidden', t!==tab);
+    });
+  });
+});
+
+/* -------- PV & FIRST LAW -------- */
+const PVP = document.getElementById('pv-plot').getContext('2d');
+const PVread = document.getElementById('pv-read');
+const R = 8.314;
+function drawPV(){
+  const n = +document.getElementById('pv-n').value;
+  const gamma = +document.getElementById('pv-gamma').value;
+  const Pi = +document.getElementById('pv-P').value*1000;
+  const Vi = +document.getElementById('pv-V').value/1000;
+  const proc = document.getElementById('pv-proc').value;
+  const nexp = +document.getElementById('pv-nexp').value;
+  const Vf = +document.getElementById('pv-Vf').value/1000;
+  const steps = Math.max(2, Math.round(+document.getElementById('pv-steps').value));
+  // initial T
+  const Ti = Pi*Vi/(n*R);
+  let points = [];
+  let Pf, Tf, W=0, Q=0, dU=0;
+  function PofV(V){
+    if (proc==='isothermal') return n*R*Ti/V;
+    if (proc==='adiabatic'){ const K = Pi*Math.pow(Vi,gamma); return K/Math.pow(V,gamma); }
+    if (proc==='isobaric') return Pi;
+    if (proc==='isochoric') return Pi + (n*R*(Ti)/Vi)*(V/Vi - 1); // roughly linear just to draw; exact vertical
+    // polytropic
+    const K = Pi*Math.pow(Vi,nexp);
+    return K/Math.pow(V,nexp);
+  }
+  // integrate numerically for W = ∫ P dV
+  for (let i=0;i<=steps;i++){
+    const s = i/steps;
+    const V = Vi + (Vf - Vi)*s;
+    const P = PofV(V);
+    points.push({V,P});
+    if (i>0){
+      const Vprev = points[i-1].V, Pprev = points[i-1].P;
+      W += 0.5*(P+Pprev)*(V-Vprev);
+    }
+  }
+  // end values
+  Pf = points[points.length-1].P;
+  if (proc==='isothermal'){ Tf = Ti; dU = 0; Q = W; }
+  else if (proc==='adiabatic'){ Tf = Pf*Vf/(n*R); dU = n*(R/(gamma-1))*(Tf - Ti); Q = 0; }
+  else if (proc==='isobaric'){ Tf = Pf*Vf/(n*R); dU = n*(R/(gamma-1))*(Tf - Ti); Q = dU + Pi*(Vf-Vi); }
+  else if (proc==='isochoric'){ Tf = Pf*Vf/(n*R); dU = n*(R/(gamma-1))*(Tf - Ti); Q = dU; W = 0; }
+  else { // polytropic
+    Tf = Pf*Vf/(n*R);
+    dU = n*(R/(gamma-1))*(Tf - Ti);
+    if (Math.abs(nexp-1)<1e-6) Q = dU + n*R*Ti*Math.log(Vf/Vi); else Q = dU + (Pf*Vf - Pi*Vi)/(1-nexp);
+  }
+
+  // Plot
+  const Wc=PVP.canvas.width, H=PVP.canvas.height;
+  PVP.fillStyle="#0f172a"; PVP.fillRect(0,0,Wc,H);
+  PVP.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ PVP.beginPath(); PVP.moveTo(0,y); PVP.lineTo(Wc,y); PVP.stroke(); }
+  PVP.strokeStyle="rgba(148,163,184,.6)"; PVP.beginPath(); PVP.moveTo(50,10); PVP.lineTo(50,H-40); PVP.lineTo(Wc-20,H-40); PVP.stroke();
+  PVP.fillStyle="rgba(226,232,240,.9)"; PVP.font="12px ui-sans-serif"; PVP.fillText("V (L)", Wc-60, H-14); PVP.save(); PVP.translate(16, H/2); PVP.rotate(-Math.PI/2); PVP.fillText("P (kPa)", 0,0); PVP.restore();
+  const Pmax = Math.max(...points.map(p=>p.P));
+  function px(V){ return 50 + ( (V - Math.min(Vi,Vf)) / (Math.max(Vi,Vf)-Math.min(Vi,Vf) || 1) )*(Wc-80); }
+  function py(P){ return (H-40) - (P/Pmax)*(H-60); }
+  // curve
+  PVP.strokeStyle="#60a5fa"; PVP.lineWidth=2; PVP.beginPath();
+  points.forEach((pt,i)=>{ const x=px(pt.V), y=py(pt.P/1000); if(i===0) PVP.moveTo(x,y); else PVP.lineTo(x,y); }); // keep in kPa on axis
+  PVP.stroke();
+  // endpoints
+  PVP.fillStyle="#fbbf24"; [0,points.length-1].forEach(i=>{ const x=px(points[i].V), y=py(points[i].P/1000); PVP.beginPath(); PVP.arc(x,y,4,0,Math.PI*2); PVP.fill(); });
+
+  PVread.textContent = `Ti≈${Ti.toFixed(1)} K  Tf≈${Tf.toFixed(1)} K   ΔU≈${dU.toFixed(1)} J   W≈${W.toFixed(1)} J   Q≈${Q.toFixed(1)} J  (sign: +W gas does work)`;
+}
+document.getElementById('pv-run').addEventListener('click', drawPV);
+document.getElementById('pv-swap').addEventListener('click', ()=>{
+  const a=document.getElementById('pv-V'), b=document.getElementById('pv-Vf');
+  const tmp=a.value; a.value=b.value; b.value=tmp; drawPV();
+});
+drawPV();
+
+/* -------- HEATING & PHASE CHANGE -------- */
+const HEAT = document.getElementById('heat-plot').getContext('2d');
+const Hread = document.getElementById('heat-read');
+const props = {
+  water: { c:4180, Tm:0, Lf:334e3, Tb:100, Lv:2256e3 },
+  ice: { c:2100, Tm:0, Lf:334e3, Tb:0, Lv:0 },
+  aluminium: { c:900, Tm:660, Lf:397e3, Tb:2519, Lv:10500e3 },
+  copper: { c:385, Tm:1085, Lf:205e3, Tb:2562, Lv:4730e3 },
+  ethanol: { c:2400, Tm:-114, Lf:108e3, Tb:78.4, Lv:846e3 }
+};
+function runHeating(){
+  const key = document.getElementById('heat-sub').value;
+  const {c,Tm,Lf,Tb,Lv} = props[key];
+  const m = +document.getElementById('heat-m').value;
+  const TiC = +document.getElementById('heat-Ti').value;
+  const P = +document.getElementById('heat-P').value;
+  const minutes = +document.getElementById('heat-min').value;
+  const allowPhase = document.getElementById('heat-phase').value==='auto';
+  const totalT = minutes*60;
+  // Build piecewise T(t)
+  let t=0, T=TiC, segments=[{t:0,T:TiC}], plateaus=[];
+  function push(Tnext, dt){ t+=dt; segments.push({t,T:Tnext}); T=Tnext; }
+  // heat to melting/boiling as needed
+  if (allowPhase && TiC < Tm){ // warm solid to melt
+    const dt = m*c*(Tm - T)/P; push(Tm, Math.max(0,dt));
+    const dtL = m*Lf/P; push(Tm, dtL); plateaus.push({label:"melting", tStart:t-dtL, tEnd:t});
+  }
+  if (allowPhase && T < Tb && (TiC>=Tm || key==='water')){ // warm liquid to boil
+    const c_eff = c;
+    const dt = m*c_eff*(Tb - T)/P; push(Tb, Math.max(0,dt));
+    if (Lv>0){ const dtLv = m*Lv/P; push(Tb, dtLv); plateaus.push({label:"boiling", tStart:t-dtLv, tEnd:t}); }
+  }
+  if (t < totalT){ // continue heating in last phase
+    const remaining = totalT - t;
+    const cphase = c; // simple: use listed c for current phase
+    const dT = (P/(m*cphase))*remaining;
+    push(T + dT, remaining);
+  }
+  // Plot
+  const W=HEAT.canvas.width, H=HEAT.canvas.height;
+  HEAT.fillStyle="#0f172a"; HEAT.fillRect(0,0,W,H);
+  HEAT.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ HEAT.beginPath(); HEAT.moveTo(0,y); HEAT.lineTo(W,y); HEAT.stroke(); }
+  HEAT.strokeStyle="rgba(148,163,184,.6)"; HEAT.beginPath(); HEAT.moveTo(50,10); HEAT.lineTo(50,H-40); HEAT.lineTo(W-20,H-40); HEAT.stroke();
+  HEAT.fillStyle="rgba(226,232,240,.9)"; HEAT.font="12px ui-sans-serif"; HEAT.fillText("t (min)", W-70, H-12); HEAT.save(); HEAT.translate(16, H/2); HEAT.rotate(-Math.PI/2); HEAT.fillText("T (°C)", 0,0); HEAT.restore();
+  const Tmax = Math.max(...segments.map(p=>p.T), Tb+20);
+  function px(tt){ return 50 + (tt/totalT)*(W-80); }
+  function py(TT){ return (H-40) - ((TT - Math.min(TiC,Tm-40))/ (Tmax - Math.min(TiC,Tm-40)+1e-6))*(H-60); }
+  // piecewise lines
+  HEAT.strokeStyle="#60a5fa"; HEAT.lineWidth=2; HEAT.beginPath();
+  segments.forEach((p,i)=>{
+    const x=px(p.t), y=py(p.T);
+    if (i===0) HEAT.moveTo(x,y); else HEAT.lineTo(x,y);
+  });
+  HEAT.stroke();
+  // plateaus shading
+  plateaus.forEach(pl=>{
+    HEAT.fillStyle="rgba(251,191,36,.15)";
+    HEAT.fillRect(px(pl.tStart), 10, px(pl.tEnd)-px(pl.tStart), H-50);
+    HEAT.fillStyle="rgba(251,191,36,.9)"; HEAT.fillText(pl.label, px(pl.tStart)+6, 24);
+  });
+  const E=P*totalT;
+  Hread.textContent = `Total energy in: Q≈${E.toFixed(0)} J   final T≈${segments[segments.length-1].T.toFixed(1)} °C   plateaus=${plateaus.map(p=>p.label).join(", ")||"none"}`;
+}
+document.getElementById('heat-run').addEventListener('click', runHeating);
+runHeating();
+
+/* -------- CALORIMETRY -------- */
+const CAL = document.getElementById('cal-plot').getContext('2d');
+const Cread = document.getElementById('cal-read');
+function runCal(){
+  const m1=+document.getElementById('cal-m1').value;
+  const m2=+document.getElementById('cal-m2').value;
+  const T1=+document.getElementById('cal-T1').value;
+  const T2=+document.getElementById('cal-T2').value;
+  const c=+document.getElementById('cal-c').value;
+  const Ccal=+document.getElementById('cal-C').value;
+  // Solve (m1 c)(T1 − Tf) = (m2 c)(Tf − T2) + Ccal (Tf − T2)
+  const Tf = (m1*c*T1 + (m2*c + Ccal)*T2) / (m1*c + m2*c + Ccal);
+  const Qlost = m1*c*(T1 - Tf);
+  const Qgain = m2*c*(Tf - T2) + Ccal*(Tf - T2);
+  // Plot simple bar chart
+  const W=CAL.canvas.width,H=CAL.canvas.height;
+  CAL.fillStyle="#0f172a"; CAL.fillRect(0,0,W,H);
+  CAL.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ CAL.beginPath(); CAL.moveTo(0,y); CAL.lineTo(W,y); CAL.stroke(); }
+  const vals = [
+    {label:"Q_lost (hot)", val:Math.max(0,Qlost)},
+    {label:"Q_gain (cold+cal)", val:Math.max(0,Qgain)},
+  ];
+  const vmax=Math.max(...vals.map(v=>v.val),1);
+  const bw=(W-80)/vals.length;
+  vals.forEach((v,i)=>{
+    const h=(v.val/vmax)*(H-60);
+    CAL.fillStyle= i===0? "#f87171" : "#34d399";
+    CAL.fillRect(40+i*bw, (H-40)-h, bw*0.7, h);
+    CAL.fillStyle="rgba(226,232,240,.9)"; CAL.font="12px ui-sans-serif";
+    CAL.fillText(v.label, 40+i*bw+2, H-22);
+  });
+  Cread.textContent = `T_final≈${Tf.toFixed(2)} °C   Q_lost≈${Qlost.toFixed(0)} J   Q_gain≈${Qgain.toFixed(0)} J (energy balance ideally equal)`;
+}
+document.getElementById('cal-run').addEventListener('click', runCal);
+runCal();
+
+/* -------- CONDUCTION -------- */
+const COND = document.getElementById('cond-plot').getContext('2d');
+const CondRead = document.getElementById('cond-read');
+function runCond(){
+  const k = +document.getElementById('cond-mat').value;
+  const A = +document.getElementById('cond-A').value/1e4; // cm^2 → m^2
+  const L = +document.getElementById('cond-L').value/100; // cm → m
+  const dT = +document.getElementById('cond-dT').value;
+  const Qdot = k*A*dT/L; // W
+  // Visual gradient bar
+  const W=COND.canvas.width,H=COND.canvas.height;
+  COND.fillStyle="#0f172a"; COND.fillRect(0,0,W,H);
+  COND.strokeStyle="rgba(148,163,184,.25)"; COND.strokeRect(40,40,W-80,H-80);
+  // temperature gradient
+  for (let x=40; x<W-40; x++){
+    const frac=(x-40)/(W-80);
+    const val = 1-frac;
+    const col = `hsl(${220*val},70%,${40+30*val}%)`;
+    COND.fillStyle = col; COND.fillRect(x,60,1,H-120);
+  }
+  // arrows
+  for (let x=60; x<W-60; x+=80){
+    COND.strokeStyle="rgba(248,250,252,.8)"; COND.beginPath(); COND.moveTo(x, H/2); COND.lineTo(x+40, H/2); COND.stroke();
+    COND.beginPath(); COND.moveTo(x+40,H/2); COND.lineTo(x+32,H/2-6); COND.lineTo(x+32,H/2+6); COND.closePath(); COND.fillStyle="rgba(248,250,252,.8)"; COND.fill();
+  }
+  CondRead.textContent = `Q̇ ≈ ${Qdot.toFixed(2)} W   R_th = L/(kA) ≈ ${(L/(k*A)).toFixed(4)} K/W   (higher k or A → more heat flow; larger L → less)`;
+}
+document.getElementById('cond-run').addEventListener('click', runCond);
+runCond();
+</script>
+</body>
+</html>

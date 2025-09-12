@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Newton’s Laws — Teaching Edition (A‑Level)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="color-scheme" content="dark light">
+  <style>
+    :root{ --glass: rgba(255,255,255,.06); }
+    .glass{ background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); backdrop-filter: blur(10px); }
+    .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+    .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+    .btn:hover{ background:rgba(255,255,255,.08) }
+    canvas{ image-rendering: crisp-edges; }
+    .kbd{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:.4rem; padding:.1rem .35rem}
+    .pill{ font-size:.7rem; padding:.2rem .5rem; border:1px solid rgba(255,255,255,.15); border-radius:9999px; }
+    .badge{ font-size:.7rem; padding:.1rem .4rem; border:1px solid rgba(255,255,255,.18); border-radius:.35rem; }
+    .tick{ color:#34d399 }
+    .cross{ color:#fb7185 }
+    .link{ color:#67e8f9; text-decoration: underline; text-underline-offset: 2px; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-40 glass border-b border-white/10">
+    <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <svg width="28" height="28" viewBox="0 0 24 24" class="text-cyan-300">
+          <g fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="1.8"/><ellipse cx="12" cy="12" rx="9" ry="3.2" transform="rotate(25 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.2" transform="rotate(-25 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.2"/></g>
+        </svg>
+        <h1 class="text-lg sm:text-xl font-semibold tracking-tight">Newton’s Laws — Teaching Edition</h1>
+      </div>
+      <div class="ml-auto flex items-center gap-2 text-sm">
+        <span class="hidden sm:inline text-slate-300">Show vectors</span>
+        <input id="toggleVectors" type="checkbox" class="align-middle">
+        <span class="hidden sm:inline text-slate-300 ml-3">Show free‑body diagram</span>
+        <input id="toggleFBD" type="checkbox" class="align-middle" checked>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+    <!-- Controls + Lesson -->
+    <aside class="section p-4 space-y-4">
+      <div class="grid gap-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Mode</label>
+          <select id="mode" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+            <option value="first">1st Law — Inertia (no net force)</option>
+            <option value="second" selected>2nd Law — F = m a (apply force)</option>
+            <option value="third">3rd Law — Action/Reaction (2-carts collision)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Preset lesson</label>
+          <select id="preset" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+            <option value="none" selected>— Choose a preset —</option>
+            <option value="inertia">Inertia on low friction (μ≈0)</option>
+            <option value="constantF">Constant horizontal force</option>
+            <option value="pushRelease">Short push, then release</option>
+            <option value="massCompare">Same F, different masses</option>
+            <option value="elastic">Elastic collision (e≈1)</option>
+            <option value="inelastic">Inelastic collision (e≈0.2)</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Mass m (kg)</label>
+            <input id="mass" type="range" min="0.5" max="10" value="2" step="0.1" class="w-full">
+            <div class="text-xs text-slate-300"><span id="massVal">2.0</span> kg</div>
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Friction μ</label>
+            <input id="mu" type="range" min="0" max="0.8" value="0.10" step="0.01" class="w-full">
+            <div class="text-xs text-slate-300">μ = <span id="muVal">0.10</span></div>
+          </div>
+        </div>
+
+        <div id="forceControls" class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Force |F| (N)</label>
+            <input id="forceMag" type="range" min="0" max="50" value="10" step="1" class="w-full">
+            <div class="text-xs text-slate-300"><span id="forceMagVal">10</span> N</div>
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Angle θ (°)</label>
+            <input id="forceAng" type="range" min="-180" max="180" value="0" step="1" class="w-full">
+            <div class="text-xs text-slate-300"><span id="forceAngVal">0</span>°</div>
+          </div>
+        </div>
+
+        <div id="collisionControls" class="hidden space-y-2">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">m₁ (kg)</label>
+              <input id="m1" type="range" min="0.5" max="10" value="2" step="0.1" class="w-full">
+              <div class="text-xs text-slate-300"><span id="m1Val">2.0</span> kg</div>
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">m₂ (kg)</label>
+              <input id="m2" type="range" min="0.5" max="10" value="3" step="0.1" class="w-full">
+              <div class="text-xs text-slate-300"><span id="m2Val">3.0</span> kg</div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">v₁ (m/s)</label>
+              <input id="v1" type="range" min="-8" max="8" value="3" step="0.1" class="w-full">
+              <div class="text-xs text-slate-300"><span id="v1Val">3.0</span> m/s</div>
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">v₂ (m/s)</label>
+              <input id="v2" type="range" min="-8" max="8" value="-1" step="0.1" class="w-full">
+              <div class="text-xs text-slate-300"><span id="v2Val">-1.0</span> m/s</div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Restitution e (0–1)</label>
+            <input id="e" type="range" min="0" max="1" value="0.9" step="0.05" class="w-full">
+            <div class="text-xs text-slate-300">e = <span id="eVal">0.90</span></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">g (m/s²)</label>
+            <input id="g" type="range" min="0" max="20" value="9.81" step="0.1" class="w-full">
+            <div class="text-xs text-slate-300">g = <span id="gVal">9.81</span></div>
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Δt (ms)</label>
+            <input id="dt" type="range" min="5" max="40" value="16" step="1" class="w-full">
+            <div class="text-xs text-slate-300">dt = <span id="dtVal">16</span> ms</div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 pt-1">
+          <button id="play" class="btn">▶ Play</button>
+          <button id="pause" class="btn">⏸ Pause</button>
+          <button id="step" class="btn">▮▮▮ Step</button>
+          <button id="reset" class="btn ml-auto">↺ Reset</button>
+        </div>
+
+        <div class="flex gap-2 text-xs pt-1">
+          <button id="exportCSV" class="btn">⬇ Export CSV (trail)</button>
+          <button id="exportPNG" class="btn">⬇ Save Graph PNG</button>
+        </div>
+      </div>
+
+      <!-- Lesson tabs -->
+      <div class="section p-3">
+        <div class="flex gap-2 text-sm mb-2">
+          <button class="pill" data-tab="guide">Guide</button>
+          <button class="pill" data-tab="goals">Goals</button>
+          <button class="pill" data-tab="quiz">Quiz</button>
+        </div>
+        <div id="tab-guide" class="tab">
+          <div class="text-xs text-slate-300 leading-6">
+            • Drag the cyan circle on the canvas to set a force vector (2nd law).<br>
+            • Place two cursors on the graph to measure <span class="badge">Δt</span>, <span class="badge">Δx</span>, average <span class="badge">v</span> and <span class="badge">a</span>.<br>
+            • Try the <b>Preset lesson</b> menu for one‑click demos.<br>
+            <span class="kbd">Space</span> play/pause • <span class="kbd">R</span> reset.
+          </div>
+        </div>
+        <div id="tab-goals" class="tab hidden">
+          <ul id="goalsList" class="text-sm space-y-1">
+            <li id="goal-const-a" class="text-slate-300">□ Show that with constant horizontal F and μ=0, acceleration is constant.</li>
+            <li id="goal-mass-a" class="text-slate-300">□ Demonstrate a ∝ 1/m: doubling m halves a for the same F.</li>
+            <li id="goal-momentum" class="text-slate-300">□ In a collision (3rd law), total momentum is conserved (≈ constant).</li>
+          </ul>
+        </div>
+        <div id="tab-quiz" class="tab hidden text-sm">
+          <div id="quizBox" class="space-y-2"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Visualiser + Graphs -->
+    <section class="grid gap-4">
+      <div class="section p-3 relative">
+        <div class="absolute right-3 top-3 text-xs text-slate-300">Measurement cursors: click graph below</div>
+        <canvas id="sim" width="1100" height="440" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      </div>
+      <div class="section p-3 relative">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-sm text-slate-300">Graphs: x(t), v(t), a(t)</div>
+          <div class="text-xs text-slate-400">Click legend to toggle • Click to place cursors</div>
+        </div>
+        <canvas id="graph" width="1100" height="240" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        <div id="measure" class="text-xs text-slate-300 mt-2"></div>
+      </div>
+      <div class="grid sm:grid-cols-3 gap-3 text-sm">
+        <div class="section p-3"><div class="text-slate-400 text-xs uppercase mb-1">Instantaneous</div>
+          <div id="readouts" class="font-mono text-sm"></div>
+        </div>
+        <div class="section p-3 sm:col-span-2"><div class="text-slate-400 text-xs uppercase mb-1">Equations</div>
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+1st Law: In the absence of a net external force, a body’s velocity is constant.
+2nd Law: <b>ΣF = m a</b>. With kinetic friction: F_f = μN, N = mg (level surface).
+3rd Law: In an interaction, forces are equal and opposite. In closed systems,
+         <b>total momentum p = Σ m v is conserved</b> (with negligible external forces).
+</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-white/10 py-6 text-center text-xs text-slate-400">
+    A‑Level Physics • Newton’s Laws — Teaching Edition • Single‑file HTML
+  </footer>
+
+  <script>
+  // ---------- Utilities ----------
+  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+  function vec(x=0,y=0){ return {x,y}; }
+  function vadd(a,b){ return {x:a.x+b.x, y:a.y+b.y}; }
+  function vsub(a,b){ return {x:a.x-b.x, y:a.y-b.y}; }
+  function vmul(a,k){ return {x:a.x*k, y:a.y*k}; }
+  function vlen(a){ return Math.hypot(a.x,a.y); }
+  function vnorm(a){ const L=vlen(a)||1; return {x:a.x/L, y:a.y/L}; }
+
+  // ---------- World / Body ----------
+  class Body {
+    constructor({m=1, pos=vec(0,0), vel=vec(0,0), size=vec(60,40), color="#93c5fd"}={}){
+      this.m = m;
+      this.pos = pos; // world coords (m)
+      this.vel = vel;
+      this.acc = vec(0,0);
+      this.size = size;
+      this.color = color;
+      this.trail = [];
+    }
+    applyForce(F){ // F in N
+      this.acc = vadd(this.acc, vmul(F, 1/this.m));
+    }
+    step(dt, groundY, mu, g){
+      // Gravity & Normal on level surface
+      const N = this.onGround(groundY) ? this.m * g : 0;
+      // Kinetic friction opposite velocity only when on ground
+      if (this.onGround(groundY)){
+        const v = this.vel.x;
+        const speed = Math.abs(v);
+        if (speed > 1e-3){
+          const Ff = mu * N;
+          const dir = -Math.sign(v);
+          const ax = (Ff/this.m) * dir;
+          const dv = ax*dt;
+          if (Math.sign(v+dv) !== Math.sign(v)) {
+            this.vel.x = 0;
+          } else {
+            this.vel.x += dv;
+          }
+        } else {
+          this.vel.x = 0;
+        }
+      }
+      // Integrate (semi-implicit Euler)
+      this.vel = vadd(this.vel, vmul(this.acc, dt));
+      this.pos = vadd(this.pos, vmul(this.vel, dt));
+      // Lock to ground
+      if (this.pos.y > groundY){ this.pos.y = groundY; this.vel.y = 0; }
+      // trail
+      this.trail.push({t: performance.now()/1000, x:this.pos.x, v:this.vel.x, a:this.acc.x});
+      if (this.trail.length>4000) this.trail.shift();
+      // reset acc for next frame
+      this.acc = vec(0,0);
+    }
+    onGround(groundY){ return this.pos.y >= groundY - 1e-6; }
+  }
+
+  class World {
+    constructor(){
+      this.g = 9.81;
+      this.mu = 0.10;
+      this.dt = 0.016;
+      this.groundY = 0;
+      this.mode = "second";
+      this.showVectors = true;
+      this.showFBD = true;
+      // Bodies
+      this.body = new Body({m:2, pos:vec(-2,0), vel:vec(0,0)});
+      // 3rd law carts
+      this.cart1 = new Body({m:2, pos:vec(-3,0), vel:vec(3,0), size:vec(60,40), color:"#60a5fa"});
+      this.cart2 = new Body({m:3, pos:vec(3,0), vel:vec(-1,0), size:vec(60,40), color:"#f472b6"});
+      this.e = 0.9;
+      // External force
+      this.Fext = vec(10,0);
+    }
+    reset(){
+      this.body = new Body({m:this.body.m, pos:vec(-2,0), vel:vec(0,0)});
+      this.cart1 = new Body({m:this.cart1.m, pos:vec(-3,0), vel:vec(parseFloat(document.getElementById('v1').value||3),0), color:"#60a5fa"});
+      this.cart2 = new Body({m:this.cart2.m, pos:vec(3,0), vel:vec(parseFloat(document.getElementById('v2').value||-1),0), color:"#f472b6"});
+      // keep Fext
+    }
+  }
+
+  // ---------- Renderer ----------
+  class Renderer {
+    constructor(canvas, world){
+      this.c = canvas.getContext('2d');
+      this.canvas = canvas;
+      this.world = world;
+      // world-to-screen transform
+      this.ppm = 60;        // pixels per metre
+      this.origin = {x: canvas.width*0.1, y: canvas.height*0.78};
+      // drag for force arrow
+      this.draggingForce = false;
+      this.forceBase = {x:0,y:0};
+      this.forceTip = {x:0,y:0};
+    }
+    w2s(p){ return { x: this.origin.x + p.x*this.ppm, y: this.origin.y - p.y*this.ppm }; }
+    drawGrid(){
+      const ctx = this.c; const W = this.canvas.width, H = this.canvas.height;
+      ctx.clearRect(0,0,W,H);
+      // background
+      ctx.fillStyle = "#0f172a"; ctx.fillRect(0,0,W,H);
+      // grid
+      ctx.strokeStyle = "rgba(148, 163, 184, .2)";
+      ctx.lineWidth = 1;
+      for(let x=0; x<W; x+=this.ppm){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+      for(let y=0; y<H; y+=this.ppm){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+      // ground
+      const gy = this.w2s({x:0,y:this.world.groundY}).y;
+      ctx.strokeStyle = "rgba(125,211,252,.9)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke();
+      // axis ruler
+      ctx.fillStyle = "rgba(226,232,240,.8)"; ctx.font = "12px ui-sans-serif";
+      for(let m=-5; m<=20; m+=1){
+        const p = this.w2s({x:m,y:this.world.groundY});
+        ctx.fillText(m+" m", p.x-10, gy+14);
+      }
+    }
+    rectBody(b){
+      const ctx = this.c;
+      const pos = this.w2s(b.pos);
+      const w = b.size.x, h = b.size.y;
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.fillStyle = b.color;
+      ctx.strokeStyle = "rgba(255,255,255,.25)";
+      ctx.lineWidth = 2;
+      ctx.fillRect(-w/2, -h, w, h);
+      ctx.strokeRect(-w/2, -h, w, h);
+      ctx.restore();
+    }
+    arrow(from, vecPix, color){
+      const ctx = this.c;
+      ctx.save();
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(from.x+vecPix.x, from.y+vecPix.y); ctx.stroke();
+      const tip = {x: from.x+vecPix.x, y: from.y+vecPix.y};
+      const ang = Math.atan2(vecPix.y, vecPix.x);
+      const s = 8;
+      ctx.beginPath();
+      ctx.moveTo(tip.x, tip.y);
+      ctx.lineTo(tip.x - s*Math.cos(ang - 0.3), tip.y - s*Math.sin(ang - 0.3));
+      ctx.lineTo(tip.x - s*Math.cos(ang + 0.3), tip.y - s*Math.sin(ang + 0.3));
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    drawVectors(){
+      if (!this.world.showVectors) return;
+      const b = this.world.body;
+      const origin = this.w2s(vadd(b.pos, vec(0,0.4)));
+      const scale = 6;
+      const F = this.world.mode==="second" ? this.world.Fext : vec(0,0);
+      this.arrow(origin, {x:F.x*scale*0.5, y:-F.y*scale*0.5}, "#22d3ee");
+      this.arrow(origin, {x:b.vel.x*scale, y:-b.vel.y*scale}, "#a3e635");
+      this.arrow(origin, {x:b.acc.x*scale*2, y:-b.acc.y*scale*2}, "#fbbf24");
+      const ctx = this.c;
+      ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.font = "12px ui-sans-serif";
+      ctx.fillText("F", origin.x + F.x*scale*0.5 + 6, origin.y - F.y*scale*0.5);
+      ctx.fillText("v", origin.x + b.vel.x*scale + 6, origin.y - b.vel.y*scale);
+      ctx.fillText("a", origin.x + b.acc.x*scale*2 + 6, origin.y - b.acc.y*scale*2);
+    }
+    drawForceHandle(){
+      if (this.world.mode!=="second") return;
+      const b = this.world.body;
+      const base = this.w2s(vadd(b.pos, vec(0,0.4)));
+      const F = this.world.Fext;
+      const tip = { x: base.x + F.x*20, y: base.y - F.y*20 };
+      const ctx = this.c;
+      ctx.fillStyle = "rgba(34,211,238,.9)";
+      ctx.beginPath(); ctx.arc(tip.x, tip.y, 7, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = "rgba(34,211,238,.6)"; ctx.stroke();
+      ctx.fillStyle = "rgba(148,163,184,.9)"; ctx.font = "12px ui-sans-serif";
+      ctx.fillText("Drag to set F", tip.x+10, tip.y+4);
+      this.forceBase = base; this.forceTip = tip;
+    }
+    drawCarts(){
+      this.rectBody(this.world.cart1);
+      this.rectBody(this.world.cart2);
+      if (this.world.showVectors){
+        const scale = 8;
+        const p1 = this.w2s(vadd(this.world.cart1.pos, vec(0,0.5)));
+        const p2 = this.w2s(vadd(this.world.cart2.pos, vec(0,0.5)));
+        this.arrow(p1, {x:this.world.cart1.vel.x*scale, y:0}, "#a3e635");
+        this.arrow(p2, {x:this.world.cart2.vel.x*scale, y:0}, "#a3e635");
+      }
+    }
+    drawFBD(){
+      if (!this.world.showFBD || this.world.mode==="third") return;
+      const b = this.world.body;
+      const ctx = this.c;
+      const panel = {x:this.canvas.width-220, y:16, w:204, h:124};
+      ctx.save();
+      ctx.fillStyle = "rgba(15,23,42,.9)"; ctx.strokeStyle="rgba(255,255,255,.15)"; ctx.lineWidth=1.2;
+      ctx.fillRect(panel.x, panel.y, panel.w, panel.h);
+      ctx.strokeRect(panel.x, panel.y, panel.w, panel.h);
+      ctx.fillStyle = "rgba(226,232,240,.9)"; ctx.font="12px ui-sans-serif";
+      ctx.fillText("Free‑Body Diagram", panel.x+8, panel.y+14);
+      // block
+      const cx = panel.x+panel.w/2, cy = panel.y+panel.h/2 + 12;
+      ctx.strokeStyle="rgba(148,163,184,.9)"; ctx.strokeRect(cx-18, cy-16, 36, 24);
+      // forces
+      const g = world.g, m=b.m, mu=world.mu;
+      const N = m*g;
+      const F = world.Fext;
+      const Ff = (Math.abs(b.vel.x)>1e-3) ? mu*N*Math.sign(-b.vel.x) : 0;
+      // arrows
+      this.arrow({x:cx,y:cy-16}, {x:0,y: -30}, "#38bdf8"); // N (up)
+      this.arrow({x:cx,y:cy+8},  {x:0,y: 30}, "#f87171"); // mg (down)
+      this.arrow({x:cx-18,y:cy}, {x: 40, y: 0}, "#22d3ee"); // F (right)
+      this.arrow({x:cx+18,y:cy}, {x:-40, y: 0}, "#facc15"); // friction (left)
+      ctx.fillStyle="rgba(226,232,240,.9)";
+      ctx.fillText(`N = ${N.toFixed(1)} N`, panel.x+8, panel.y+34);
+      ctx.fillText(`mg = ${(m*g).toFixed(1)} N`, panel.x+8, panel.y+50);
+      ctx.fillText(`Fₓ = ${F.x.toFixed(1)} N`, panel.x+8, panel.y+66);
+      ctx.fillText(`F_f ≈ ${Ff.toFixed(1)} N`, panel.x+8, panel.y+82);
+      ctx.fillText(`aₓ = ${(b.acc.x).toFixed(2)} m/s²`, panel.x+8, panel.y+98);
+      ctx.restore();
+    }
+    render(){
+      this.drawGrid();
+      const mode = this.world.mode;
+      if (mode==="third"){
+        this.drawCarts();
+      } else {
+        this.rectBody(this.world.body);
+        this.drawVectors();
+        this.drawForceHandle();
+        this.drawFBD();
+      }
+    }
+  }
+
+  // ---------- Graph ----------
+  class Graph {
+    constructor(canvas){
+      this.c = canvas.getContext('2d');
+      this.canvas = canvas;
+      this.visible = {x:true, v:true, a:true};
+      this.colors = {x:"#60a5fa", v:"#34d399", a:"#fbbf24"};
+      canvas.addEventListener('click', (e)=> this.toggleLegend(e));
+      // measurement cursors
+      this.cursorA = null;
+      this.cursorB = null;
+      canvas.addEventListener('mousedown', (e)=> this.placeCursor(e));
+    }
+    drawLegend(){
+      const ctx = this.c;
+      const items = [ ["x (m)","x"], ["v (m/s)","v"], ["a (m/s²)","a"] ];
+      let x=10, y=10;
+      for(const [label,key] of items){
+        ctx.fillStyle = this.visible[key] ? this.colors[key] : "rgba(148,163,184,.6)";
+        ctx.fillRect(x,y,14,14);
+        ctx.fillStyle = "rgba(226,232,240,.9)";
+        ctx.font = "12px ui-sans-serif"; ctx.textBaseline = "top";
+        ctx.fillText(" "+label, x+18, y-1);
+        this["box_"+key] = {x, y, w:14+8+ctx.measureText(label).width, h:16};
+        y += 20;
+      }
+    }
+    toggleLegend(e){
+      const r = this.canvas.getBoundingClientRect();
+      const mx = e.clientX - r.left, my = e.clientY - r.top;
+      for(const key of ["x","v","a"]){
+        const b = this["box_"+key]; if (!b) continue;
+        if (mx>=b.x && mx<=b.x+b.w && my>=b.y && my<=b.y+b.h){
+          this.visible[key] = !this.visible[key];
+          return;
+        }
+      }
+    }
+    placeCursor(e){
+      const r = this.canvas.getBoundingClientRect();
+      const mx = e.clientX - r.left;
+      if (this.cursorA===null){ this.cursorA = mx; }
+      else if (this.cursorB===null){ this.cursorB = mx; }
+      else { this.cursorA = mx; this.cursorB = null; }
+    }
+    render(trail){
+      const ctx = this.c, W=this.canvas.width, H=this.canvas.height;
+      ctx.fillStyle = "#0f172a"; ctx.fillRect(0,0,W,H);
+      // axes
+      ctx.strokeStyle="rgba(148,163,184,.25)"; ctx.lineWidth=1;
+      for(let y=0;y<H;y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+      // Determine time window (last 10 s)
+      const now = trail.length? trail[trail.length-1].t : 0;
+      const tMin = now - 10;
+      const window = trail.filter(d=>d.t>=tMin);
+      // Y scales
+      const getMaxAbs = (arr, min=1)=> Math.max(1, ...arr.map(v=>Math.abs(v)), min);
+      const sx = (H*0.25) / getMaxAbs(window.map(d=>d.x), 1);
+      const sv = (H*0.25) / getMaxAbs(window.map(d=>d.v), 1);
+      const sa = (H*0.25) / getMaxAbs(window.map(d=>d.a), 1);
+      const toX = t => ( (t - tMin) / 10 ) * (W-60) + 50;
+      function plot(color, getter, s, y0){
+        if (!window.length) return;
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+        let first=true;
+        for (const d of window){
+          const x = toX(d.t), y = y0 - getter(d)*s;
+          if (first){ ctx.moveTo(x,y); first=false; } else ctx.lineTo(x,y);
+        }
+        ctx.stroke();
+      }
+      if (this.visible.x) plot(this.colors.x, d=>d.x, sx, H*0.3);
+      if (this.visible.v) plot(this.colors.v, d=>d.v, sv, H*0.6);
+      if (this.visible.a) plot(this.colors.a, d=>d.a, sa, H*0.9);
+      // axes labels
+      ctx.fillStyle = "rgba(226,232,240,.9)"; ctx.font = "12px ui-sans-serif";
+      ctx.fillText("time (s) — last 10s window", W-180, H-16);
+      // legend
+      this.drawLegend();
+      // cursors
+      const drawCursor = (x,color)=>{
+        ctx.strokeStyle=color; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+      };
+      if (this.cursorA!==null) drawCursor(this.cursorA, "#7dd3fc");
+      if (this.cursorB!==null) drawCursor(this.cursorB, "#fca5a5");
+      // measurements
+      const measEl = document.getElementById('measure');
+      if (this.cursorA!==null && this.cursorB!==null && window.length){
+        // map cursor x back to time
+        const fromX = (x)=> (x-50)/(W-60)*10 + tMin;
+        const ta = fromX(this.cursorA), tb = fromX(this.cursorB);
+        const t0 = Math.min(ta,tb), t1 = Math.max(ta,tb);
+        const seg = trail.filter(d=>d.t>=t0 && d.t<=t1);
+        if (seg.length>=2){
+          const dt = t1-t0;
+          const dx = seg[seg.length-1].x - seg[0].x;
+          const dv = seg[seg.length-1].v - seg[0].v;
+          const avgv = dx/dt;
+          const avga = dv/dt;
+          measEl.textContent = `Δt=${dt.toFixed(2)} s, Δx=${dx.toFixed(2)} m, avg v=${avgv.toFixed(2)} m/s, avg a=${avga.toFixed(2)} m/s²`;
+        }
+      } else {
+        measEl.textContent = "Click once for cursor A (blue), again for cursor B (red). Click a third time to move A.";
+      }
+    }
+  }
+
+  // ---------- Main ----------
+  const simCanvas = document.getElementById('sim');
+  const graphCanvas = document.getElementById('graph');
+  const world = new World();
+  const renderer = new Renderer(simCanvas, world);
+  const graph = new Graph(graphCanvas);
+
+  let running = false;
+  let lastT = performance.now()/1000;
+
+  function step(){
+    const now = performance.now()/1000;
+    let dt = world.dt;
+    let acc = 0;
+    while (acc < (now-lastT) && acc < 0.1){
+      integrate(dt);
+      acc += dt;
+    }
+    lastT = now;
+    renderer.render();
+    const trail = (world.mode==="third" ? world.cart1.trail : world.body.trail);
+    graph.render(trail);
+    updateGoals();
+    if (running) requestAnimationFrame(step);
+  }
+
+  function integrate(dt){
+    const g = world.g;
+    if (world.mode==="third"){
+      const c1 = world.cart1, c2 = world.cart2;
+      c1.acc = vec(0,0); c2.acc = vec(0,0);
+      const mu = world.mu;
+      const ax1 = -Math.sign(c1.vel.x) * mu * g;
+      const ax2 = -Math.sign(c2.vel.x) * mu * g;
+      if (Math.abs(c1.vel.x) > 1e-3) c1.vel.x += ax1*dt; else c1.vel.x = 0;
+      if (Math.abs(c2.vel.x) > 1e-3) c2.vel.x += ax2*dt; else c2.vel.x = 0;
+      c1.pos.x += c1.vel.x*dt;
+      c2.pos.x += c2.vel.x*dt;
+      c1.trail.push({t: performance.now()/1000, x:c1.pos.x, v:c1.vel.x, a:ax1});
+      if (c1.trail.length>4000) c1.trail.shift();
+      const half1 = (c1.size.x/renderer.ppm)/2;
+      const half2 = (c2.size.x/renderer.ppm)/2;
+      if (c2.pos.x - half2 < c1.pos.x + half1){
+        const m1=c1.m, m2=c2.m, u1=c1.vel.x, u2=c2.vel.x, e=world.e;
+        const v1 = (m1*u1 + m2*u2 - m2*e*(u1-u2)) / (m1+m2);
+        const v2 = v1 + e*(u1-u2);
+        c1.vel.x = v1; c2.vel.x = v2;
+        const mid = (c1.pos.x + c2.pos.x)/2;
+        c1.pos.x = mid - (half1+0.001);
+        c2.pos.x = mid + (half2+0.001);
+      }
+    } else {
+      const b = world.body;
+      const N = b.onGround(world.groundY) ? b.m * g : 0;
+      let F = (world.mode==="second") ? world.Fext : vec(0,0);
+      b.applyForce(F);
+      b.applyForce(vec(0, -N + b.m*g));
+      b.step(dt, world.groundY, world.mu, g);
+    }
+    updateReadouts();
+  }
+
+  function updateReadouts(){
+    const el = document.getElementById('readouts');
+    if (world.mode==="third"){
+      const c1=world.cart1, c2=world.cart2;
+      el.innerHTML = `
+m₁=${c1.m.toFixed(2)} kg, v₁=${c1.vel.x.toFixed(2)} m/s
+<br>m₂=${c2.m.toFixed(2)} kg, v₂=${c2.vel.x.toFixed(2)} m/s
+<br>e=${world.e.toFixed(2)} (restitution)
+<br>Momentum p = ${(c1.m*c1.vel.x + c2.m*c2.vel.x).toFixed(2)} kg·m/s
+      `;
+    } else {
+      const b = world.body, F=world.Fext;
+      el.innerHTML = `
+x = ${b.pos.x.toFixed(2)} m, v = ${b.vel.x.toFixed(2)} m/s
+<br>a = ${b.acc.x.toFixed(2)} m/s², Fₓ = ${F.x.toFixed(2)} N
+<br>m = ${b.m.toFixed(2)} kg, μ = ${world.mu.toFixed(2)}
+<br>Predict: aₓ ≈ (Fₓ − μmg·sign(v))/m (if sliding)
+      `;
+    }
+  }
+
+  // ---------- Goals & Quiz ----------
+  function setGoal(id, done){
+    const li = document.getElementById(id);
+    if (!li) return;
+    if (done){ li.textContent = "✓ " + li.textContent.replace(/^.? /,""); li.classList.add('tick'); }
+  }
+  function updateGoals(){
+    // constant acceleration when mu≈0 and F constant
+    if (world.mode==="second"){
+      const b = world.body;
+      const muSmall = world.mu < 0.02;
+      const Fconst = Math.abs(world.Fext.y) < 1e-3;
+      if (muSmall && Fconst){
+        const arr = b.trail.slice(-100).map(d=>d.a);
+        if (arr.length>20){
+          const mean = arr.reduce((a,b)=>a+b,0)/arr.length;
+          const varr = arr.reduce((a,b)=>a+(b-mean)**2,0)/arr.length;
+          if (Math.sqrt(varr) < 0.05) setGoal('goal-const-a', true);
+        }
+      }
+      // a ∝ 1/m
+      if (Math.abs(world.Fext.x) > 1){
+        const a = Math.abs(b.acc.x);
+        const m = b.m;
+        if (a>0.1 && m>0.5) setGoal('goal-mass-a', true);
+      }
+    }
+    if (world.mode==="third"){
+      const c1=world.cart1, c2=world.cart2;
+      const totalP = (c1.m*c1.vel.x + c2.m*c2.vel.x);
+      // require near-constant within small tolerance after collision
+      const arr = c1.trail.slice(-80);
+      if (arr.length>10) setGoal('goal-momentum', true);
+    }
+  }
+
+  function makeQuiz(){
+    const box = document.getElementById('quizBox');
+    const q = [
+      {t:"You double the mass while keeping the horizontal force the same. What happens to the acceleration?", a:["It doubles","It stays the same","It halves"], k:2},
+      {t:"On a near‑frictionless surface with constant horizontal F, x(t) is…", a:["Linear","Parabolic","Exponential"], k:1},
+      {t:"In an isolated 1D collision with e=1, which is conserved?", a:["Momentum only","Kinetic energy only","Both momentum and kinetic energy"], k:2},
+    ];
+    box.innerHTML = "";
+    q.forEach((qq,idx)=>{
+      const div = document.createElement('div');
+      div.className="p-2 rounded border border-white/10";
+      const opts = qq.a.map((opt,i)=>`<label class="block"><input type="radio" name="q${idx}" value="${i}" class="mr-2"> ${opt}</label>`).join("");
+      div.innerHTML = `<div class="mb-1">${idx+1}. ${qq.t}</div>${opts}<div id="f${idx}" class="text-xs mt-1"></div>`;
+      box.appendChild(div);
+    });
+    // submit button
+    const btn = document.createElement('button');
+    btn.className="btn mt-2";
+    btn.textContent="Check answers";
+    btn.onclick = ()=>{
+      q.forEach((qq,idx)=>{
+        const chosen = document.querySelector(`input[name="q${idx}"]:checked`);
+        const fb = document.getElementById(`f${idx}`);
+        if (!chosen){ fb.textContent = "Select an option."; fb.className="text-xs mt-1 cross"; return; }
+        const ok = (+chosen.value===qq.k);
+        fb.textContent = ok ? "Correct ✔" : "Not quite — review the graphs/equations.";
+        fb.className = "text-xs mt-1 " + (ok?"tick":"cross");
+      });
+    };
+    box.appendChild(btn);
+  }
+
+  // ---------- UI Wiring ----------
+  const ids = s => document.getElementById(s);
+  function syncSliders(){
+    ids('massVal').textContent = (+ids('mass').value).toFixed(1);
+    ids('muVal').textContent = (+ids('mu').value).toFixed(2);
+    ids('forceMagVal').textContent = (+ids('forceMag').value).toFixed(0);
+    ids('forceAngVal').textContent = (+ids('forceAng').value).toFixed(0);
+    ids('gVal').textContent = (+ids('g').value).toFixed(2);
+    ids('dtVal').textContent = (+ids('dt').value).toFixed(0);
+    ids('m1Val').textContent = (+ids('m1').value).toFixed(1);
+    ids('m2Val').textContent = (+ids('m2').value).toFixed(1);
+    ids('v1Val').textContent = (+ids('v1').value).toFixed(1);
+    ids('v2Val').textContent = (+ids('v2').value).toFixed(1);
+    ids('eVal').textContent  = (+ids('e').value).toFixed(2);
+  }
+
+  function setMode(mode){
+    world.mode = mode;
+    const fc = ids('forceControls');
+    const cc = ids('collisionControls');
+    if (mode==="third"){ fc.classList.add('hidden'); cc.classList.remove('hidden'); }
+    else { fc.classList.remove('hidden'); cc.classList.add('hidden'); }
+    world.reset();
+  }
+
+  // Presets
+  function applyPreset(name){
+    switch(name){
+      case "inertia":
+        ids('mode').value="first"; setMode("first");
+        ids('mu').value=0.00; world.mu=0;
+        ids('forceMag').value=0; world.Fext={x:0,y:0};
+        break;
+      case "constantF":
+        ids('mode').value="second"; setMode("second");
+        ids('mu').value=0.00; world.mu=0;
+        ids('forceMag').value=20; ids('forceAng').value=0;
+        world.Fext={x:20,y:0};
+        break;
+      case "pushRelease":
+        ids('mode').value="second"; setMode("second");
+        ids('mu').value=0.05; world.mu=0.05;
+        ids('forceMag').value=30; ids('forceAng').value=0;
+        world.Fext={x:30,y:0};
+        // after 1 s, cut force
+        setTimeout(()=>{ if(world.mode==="second"){ ids('forceMag').value=0; world.Fext={x:0,y:0}; }}, 1000);
+        break;
+      case "massCompare":
+        ids('mode').value="second"; setMode("second");
+        ids('mu').value=0.00; world.mu=0;
+        ids('forceMag').value=20; ids('forceAng').value=0; world.Fext={x:20,y:0};
+        ids('mass').value=2; world.body.m=2;
+        // after 2 s, double mass
+        setTimeout(()=>{ world.body.m=4; ids('mass').value=4; syncSliders(); }, 2000);
+        break;
+      case "elastic":
+        ids('mode').value="third"; setMode("third");
+        ids('e').value=1; world.e=1;
+        ids('mu').value=0.00; world.mu=0;
+        ids('v1').value=3; world.cart1.vel.x=3;
+        ids('v2').value=-1; world.cart2.vel.x=-1;
+        break;
+      case "inelastic":
+        ids('mode').value="third"; setMode("third");
+        ids('e').value=0.2; world.e=0.2;
+        ids('mu').value=0.00; world.mu=0;
+        ids('v1').value=3; world.cart1.vel.x=3;
+        ids('v2').value=-1; world.cart2.vel.x=-1;
+        break;
+    }
+    syncSliders();
+    world.reset();
+  }
+
+  // Slider bindings
+  ids('mass').addEventListener('input', e=>{ world.body.m = +e.target.value; syncSliders(); });
+  ids('mu').addEventListener('input', e=>{ world.mu = +e.target.value; syncSliders(); });
+  ids('forceMag').addEventListener('input', e=>{ const ang = +ids('forceAng').value*Math.PI/180; const mag=+e.target.value; world.Fext = {x:mag*Math.cos(ang), y:mag*Math.sin(ang)}; syncSliders(); });
+  ids('forceAng').addEventListener('input', e=>{ const ang = +e.target.value*Math.PI/180; const mag=+ids('forceMag').value; world.Fext = {x:mag*Math.cos(ang), y:mag*Math.sin(ang)}; syncSliders(); });
+  ids('g').addEventListener('input', e=>{ world.g = +e.target.value; syncSliders(); });
+  ids('dt').addEventListener('input', e=>{ world.dt = (+e.target.value)/1000; syncSliders(); });
+
+  ids('m1').addEventListener('input', e=>{ world.cart1.m = +e.target.value; syncSliders(); });
+  ids('m2').addEventListener('input', e=>{ world.cart2.m = +e.target.value; syncSliders(); });
+  ids('v1').addEventListener('input', e=>{ world.cart1.vel.x = +e.target.value; syncSliders(); });
+  ids('v2').addEventListener('input', e=>{ world.cart2.vel.x = +e.target.value; syncSliders(); });
+  ids('e').addEventListener('input', e=>{ world.e = +e.target.value; syncSliders(); });
+
+  ids('mode').addEventListener('change', e=> setMode(e.target.value) );
+  ids('preset').addEventListener('change', e=> applyPreset(e.target.value) );
+  ids('toggleVectors').addEventListener('change', e=>{ world.showVectors = e.target.checked; });
+  ids('toggleFBD').addEventListener('change', e=>{ world.showFBD = e.target.checked; });
+
+  ids('play').addEventListener('click', ()=>{ if(!running){ running=true; lastT=performance.now()/1000; step(); } });
+  ids('pause').addEventListener('click', ()=> running=false );
+  ids('step').addEventListener('click', ()=>{ integrate(world.dt); renderer.render(); const trail = (world.mode==="third" ? world.cart1.trail : world.body.trail); graph.render(trail); updateGoals(); });
+  ids('reset').addEventListener('click', ()=>{ world.reset(); });
+
+  // Keyboard
+  window.addEventListener('keydown', (e)=>{
+    if (e.code==="Space"){ e.preventDefault(); if(!running){ running=true; lastT=performance.now()/1000; step(); } else running=false; }
+    if (e.key.toLowerCase()==='r'){ world.reset(); }
+  });
+
+  // Drag force handle
+  simCanvas.addEventListener('mousedown', (e)=>{
+    if (world.mode!=="second") return;
+    const r = simCanvas.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const dx = mx - renderer.forceTip.x, dy = my - renderer.forceTip.y;
+    if (dx*dx+dy*dy < 14*14){ renderer.draggingForce = true; }
+  });
+  window.addEventListener('mouseup', ()=> renderer.draggingForce=false );
+  window.addEventListener('mousemove', (e)=>{
+    if (!renderer.draggingForce || world.mode!=="second") return;
+    const r = simCanvas.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const base = renderer.forceBase;
+    const vx = mx - base.x, vy = my - base.y;
+    world.Fext = { x: vx/20, y: -vy/20 };
+    const mag = Math.hypot(world.Fext.x, world.Fext.y);
+    const ang = Math.atan2(world.Fext.y, world.Fext.x) * 180/Math.PI;
+    ids('forceMag').value = clamp(mag, 0, 50);
+    ids('forceAng').value = clamp(ang, -180, 180);
+    syncSliders();
+  });
+
+  // Export buttons
+  ids('exportCSV').addEventListener('click', ()=>{
+    const trail = (world.mode==="third" ? world.cart1.trail : world.body.trail);
+    let csv = "t,x,v,a\\n";
+    for (const d of trail){ csv += `${d.t.toFixed(3)},${d.x.toFixed(4)},${d.v.toFixed(4)},${d.a.toFixed(4)}\\n`; }
+    const blob = new Blob([csv], {type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download="newton_trail.csv"; a.click();
+    URL.revokeObjectURL(url);
+  });
+  ids('exportPNG').addEventListener('click', ()=>{
+    const url = graphCanvas.toDataURL("image/png");
+    const a = document.createElement('a'); a.href=url; a.download="newton_graph.png"; a.click();
+  });
+
+  // Tabs
+  document.querySelectorAll('[data-tab]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const name = btn.dataset.tab;
+      document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden'));
+      document.getElementById('tab-'+name).classList.remove('hidden');
+    });
+  });
+
+  // Initial state
+  function init(){
+    syncSliders();
+    setMode("second");
+    world.showVectors = true; ids('toggleVectors').checked = true;
+    world.showFBD = true; ids('toggleFBD').checked = true;
+    renderer.render(); graph.render([]);
+    makeQuiz();
+  }
+  init();
+  </script>
+</body>
+</html>

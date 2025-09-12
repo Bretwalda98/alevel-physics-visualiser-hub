@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Radioactive Decay & Half‑life — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Radioactive Decay & Half‑life — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">Stochastic simulation • Exponential fit • ln N plot</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Initial atoms N₀</label>
+        <input id="N0" type="range" min="50" max="5000" step="50" value="1000" class="w-full">
+        <div class="text-xs text-slate-300">N₀ = <span id="N0Val">1000</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Half‑life T½ (s)</label>
+        <input id="T2" type="range" min="1" max="60" step="1" value="12" class="w-full">
+        <div class="text-xs text-slate-300">T½ = <span id="T2Val">12</span> s</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Δt (ms)</label>
+        <input id="dt" type="range" min="50" max="1000" step="10" value="200" class="w-full">
+        <div class="text-xs text-slate-300">dt = <span id="dtVal">200</span> ms</div>
+      </div>
+      <div class="flex items-end gap-2">
+        <button id="start" class="btn">▶ Run</button>
+        <button id="pause" class="btn">⏸ Pause</button>
+        <button id="reset" class="btn">↺ Reset</button>
+      </div>
+    </div>
+    <div class="text-xs text-slate-300 leading-6">
+      Each tiny step: each undecayed nucleus has probability p = 1 − 2^{−Δt/T½} to decay. Expectation N(t)=N₀·2^{−t/T½}. ln N vs t is a straight line with slope −λ, where λ = ln 2 / T½.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="grid" width="1000" height="240" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">N(t) & expected curve</div>
+          <canvas id="nt" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">ln N vs t</div>
+          <canvas id="lnn" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+      </div>
+      <div class="section p-3">
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Random process:  dN/dt = −λN  ⇒  N(t) = N₀ e^{−λt} = N₀·2^{−t/T½},  with λ = ln2 / T½
+Half‑life: time for N to halve. On ln N vs t, slope = −λ; intercept = ln N₀.
+</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const G = document.getElementById('grid').getContext('2d');
+const NT = document.getElementById('nt').getContext('2d');
+const LN = document.getElementById('lnn').getContext('2d');
+
+let running=false, t=0;
+const st = { N0:1000, T2:12, dt:0.2 };
+let alive = []; // booleans
+const series = []; // {t,N}
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('N0Val').textContent = st.N0.toString();
+  ids('T2Val').textContent = st.T2.toString();
+  ids('dtVal').textContent = Math.round(st.dt*1000);
+}
+ids('N0').addEventListener('input', e=>{ st.N0=+e.target.value; reset(); sync(); });
+ids('T2').addEventListener('input', e=>{ st.T2=+e.target.value; sync(); });
+ids('dt').addEventListener('input', e=>{ st.dt=(+e.target.value)/1000; sync(); });
+ids('start').addEventListener('click', ()=> running=true);
+ids('pause').addEventListener('click', ()=> running=false);
+ids('reset').addEventListener('click', ()=>{ reset(); drawAll(); });
+
+function reset(){
+  alive = new Array(st.N0).fill(true);
+  t=0; series.length=0;
+}
+reset(); sync();
+
+function step(){
+  const p = 1 - Math.pow(2, -st.dt/st.T2);
+  for (let i=0;i<alive.length;i++){
+    if (alive[i] && Math.random()<p) alive[i]=false;
+  }
+  t += st.dt;
+  series.push({t, N: alive.filter(x=>x).length});
+  if (series.length>400) series.shift();
+}
+
+function drawGrid(){
+  const W=1000,H=240;
+  G.fillStyle="#0f172a"; G.fillRect(0,0,W,H);
+  const cols = Math.ceil(Math.sqrt(alive.length));
+  const size = Math.floor(Math.min(W-20, H-20)/cols);
+  let i=0;
+  for (let y=10; y<10+cols*size && i<alive.length; y+=size){
+    for (let x=10; x<10+cols*size && i<alive.length; x+=size){
+      G.fillStyle = alive[i] ? "#60a5fa" : "#64748b";
+      G.fillRect(x,y,size-2,size-2);
+      i++;
+    }
+  }
+}
+
+function drawNT(){
+  const W=500,H=180;
+  NT.fillStyle="#0f172a"; NT.fillRect(0,0,W,H);
+  NT.strokeStyle="rgba(148,163,184,.25)"; NT.lineWidth=1;
+  for (let y=0;y<H;y+=30){ NT.beginPath(); NT.moveTo(0,y); NT.lineTo(W,y); NT.stroke(); }
+  // axes
+  NT.strokeStyle="rgba(148,163,184,.6)"; NT.beginPath(); NT.moveTo(40,10); NT.lineTo(40,H-30); NT.lineTo(W-20,H-30); NT.stroke();
+  NT.fillStyle="rgba(226,232,240,.9)"; NT.font="12px ui-sans-serif";
+  NT.fillText("t (s)", W-40, H-10); NT.save(); NT.translate(16, H/2); NT.rotate(-Math.PI/2); NT.fillText("N", 0,0); NT.restore();
+  // expected curve
+  const N0 = st.N0; const T2=st.T2;
+  function px(tt){ return 40 + (tt/ (5*T2))*(W-60); }
+  function py(N){ const maxN=N0; return H-30 - (N/maxN)*(H-60); }
+  NT.strokeStyle="#34d399"; NT.lineWidth=2; NT.beginPath();
+  let first=true;
+  for (let tt=0; tt<=5*T2; tt+=0.2){
+    const Ne = N0*Math.pow(2, -tt/T2);
+    const x=px(tt), y=py(Ne);
+    if (first){ NT.moveTo(x,y); first=false; } else NT.lineTo(x,y);
+  }
+  NT.stroke();
+  // measured
+  NT.strokeStyle="#60a5fa"; NT.lineWidth=2; NT.beginPath();
+  first=true;
+  for (const d of series){
+    const x=px(d.t), y=py(d.N);
+    if (first){ NT.moveTo(x,y); first=false; } else NT.lineTo(x,y);
+  }
+  NT.stroke();
+  // half-life markers
+  for (let k=1;k<=4;k++){
+    const x=px(k*T2);
+    NT.strokeStyle="#fbbf24"; NT.setLineDash([4,4]); NT.beginPath(); NT.moveTo(x,10); NT.lineTo(x,H-30); NT.stroke(); NT.setLineDash([]);
+  }
+}
+
+function drawLN(){
+  const W=500,H=180;
+  LN.fillStyle="#0f172a"; LN.fillRect(0,0,W,H);
+  LN.strokeStyle="rgba(148,163,184,.25)"; LN.lineWidth=1;
+  for (let y=0;y<H;y+=30){ LN.beginPath(); LN.moveTo(0,y); LN.lineTo(W,y); LN.stroke(); }
+  // axes
+  LN.strokeStyle="rgba(148,163,184,.6)"; LN.beginPath(); LN.moveTo(40,10); LN.lineTo(40,H-30); LN.lineTo(W-20,H-30); LN.stroke();
+  LN.fillStyle="rgba(226,232,240,.9)"; LN.font="12px ui-sans-serif";
+  LN.fillText("t (s)", W-40, H-10); LN.save(); LN.translate(16, H/2); LN.rotate(-Math.PI/2); LN.fillText("ln N", 0,0); LN.restore();
+  const N0 = st.N0; const T2=st.T2; const lam = Math.log(2)/T2;
+  function px(tt){ return 40 + (tt/(5*T2))*(W-60); }
+  function py(lnN){ const min=-Math.log(N0); const max=Math.log(N0); return H-30 - ((lnN+max)/(2*max))*(H-60); }
+  // best-fit line using current series (simple least squares)
+  const pts = series.filter(s=>s.N>0).map(s=>({x:s.t, y:Math.log(s.N)}));
+  if (pts.length>=2){
+    const n=pts.length;
+    const sx=pts.reduce((a,b)=>a+b.x,0), sy=pts.reduce((a,b)=>a+b.y,0);
+    const sxx=pts.reduce((a,b)=>a+b.x*b.x,0), sxy=pts.reduce((a,b)=>a+b.x*b.y,0);
+    const m = (n*sxy - sx*sy)/(n*sxx - sx*sx);
+    const c = (sy - m*sx)/n;
+    // plot line
+    LN.strokeStyle="#f472b6"; LN.lineWidth=2; LN.beginPath();
+    const x0=0, x1=5*T2; LN.moveTo(px(x0), py(m*x0+c)); LN.lineTo(px(x1), py(m*x1+c)); LN.stroke();
+    LN.fillStyle="rgba(226,232,240,.9)"; LN.fillText(`fit slope ≈ ${m.toFixed(3)}  (−λ expected ≈ ${(-lam).toFixed(3)})`, 60, 20);
+  }
+  // points
+  LN.fillStyle="#60a5fa";
+  for (const s of pts){
+    LN.beginPath(); LN.arc(px(s.x), py(s.y), 2, 0, Math.PI*2); LN.fill();
+  }
+}
+
+function drawAll(){
+  drawGrid(); drawNT(); drawLN();
+  requestAnimationFrame(drawAll);
+}
+function loop(){
+  if (running){ step(); }
+  requestAnimationFrame(loop);
+}
+drawAll(); loop();
+</script>
+</body>
+</html>

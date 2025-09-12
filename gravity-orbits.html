@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gravitational Fields & Orbits (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Gravitational Fields & Orbits</h1>
+    <div class="ml-auto text-sm text-slate-300">g = GM/r² • V = −GM/r • Circular/escape speed • Energy vs r</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Central mass M (×10²⁴ kg)</label>
+        <input id="M" type="range" min="0.1" max="6000" step="0.1" value="598" class="w-full">
+        <div class="text-xs text-slate-300">M = <span id="MVal">598</span> ×10²⁴ kg</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Radius R (km)</label>
+        <input id="R" type="range" min="500" max="100000" step="100" value="6371" class="w-full">
+        <div class="text-xs text-slate-300">R = <span id="RVal">6371</span> km</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Altitude h (km)</label>
+        <input id="h" type="range" min="0" max="80000" step="100" value="400" class="w-full">
+        <div class="text-xs text-slate-300">h = <span id="hVal">400</span> km</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Probe mass m (kg)</label>
+        <input id="m" type="range" min="1" max="50000" step="1" value="500" class="w-full">
+        <div class="text-xs text-slate-300">m = <span id="mVal">500</span> kg</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Launch factor (× v_circ)</label>
+        <input id="k" type="range" min="0" max="2" step="0.01" value="1.00" class="w-full">
+        <div class="text-xs text-slate-300">k = <span id="kVal">1.00</span></div>
+      </div>
+      <div class="flex items-end">
+        <button id="reset" class="btn w-full">↺ Reset orbit</button>
+      </div>
+    </div>
+    <div class="text-xs text-slate-300 leading-6">
+      g(r) = GM/r²,  V(r) = −GM/r. Circular speed v_c = √(GM/r). Escape speed v_e = √(2GM/r). Total specific energy ε = v²/2 + V.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="orbit" width="1000" height="360" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">g & V vs r</div>
+          <canvas id="gv" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">Energy vs radius</div>
+          <canvas id="energy" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const O = document.getElementById('orbit').getContext('2d');
+const GV = document.getElementById('gv').getContext('2d');
+const EN = document.getElementById('energy').getContext('2d');
+const Gc = 6.67430e-11;
+
+const st = { M:5.98e26, R:6371e3, h:400e3, m:500, k:1.0 };
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('MVal').textContent = (st.M/1e24).toFixed(0);
+  ids('RVal').textContent = (st.R/1e3).toFixed(0);
+  ids('hVal').textContent = (st.h/1e3).toFixed(0);
+  ids('mVal').textContent = st.m.toFixed(0);
+  ids('kVal').textContent = st.k.toFixed(2);
+}
+['M','R','h','m','k'].forEach(id=> ids(id).addEventListener('input', e=>{
+  if (id==='M') st.M=(+e.target.value)*1e24;
+  if (id==='R') st.R=(+e.target.value)*1e3;
+  if (id==='h') st.h=(+e.target.value)*1e3;
+  if (id==='m') st.m=+e.target.value;
+  if (id==='k') st.k=+e.target.value;
+  sync(); initOrbit(); drawGV(); drawEN();
+}));
+ids('reset').addEventListener('click', ()=>{ initOrbit(); });
+
+let pos, vel, trail=[];
+function initOrbit(){
+  const r = st.R + st.h;
+  pos = {x: r, y: 0};
+  const vc = Math.sqrt(Gc*st.M / r);
+  vel = {x: 0, y: st.k*vc};
+  trail.length=0;
+}
+initOrbit(); sync();
+
+function step(dt){
+  const r = Math.hypot(pos.x, pos.y);
+  const g = -Gc*st.M/(r*r*r);
+  const ax = g*pos.x, ay = g*pos.y;
+  vel.x += ax*dt; vel.y += ay*dt;
+  pos.x += vel.x*dt; pos.y += vel.y*dt;
+  trail.push({x:pos.x,y:pos.y}); if (trail.length>1200) trail.shift();
+}
+
+function drawOrbit(){
+  const W=1000,H=360;
+  O.fillStyle="#0f172a"; O.fillRect(0,0,W,H);
+  // scale to fit a few radii
+  const maxr = Math.max(st.R*1.2, Math.hypot(pos.x, pos.y));
+  const scale = (H*0.42)/maxr;
+  const cx=W/2, cy=H/2;
+  // central body
+  O.fillStyle="#64748b"; O.beginPath(); O.arc(cx,cy, st.R*scale, 0, Math.PI*2); O.fill();
+  // orbit trail
+  O.strokeStyle="#60a5fa"; O.beginPath();
+  trail.forEach((p,i)=>{
+    const x=cx + p.x*scale, y=cy + p.y*scale;
+    if (i===0) O.moveTo(x,y); else O.lineTo(x,y);
+  });
+  O.stroke();
+  // probe
+  O.fillStyle="#fbbf24"; O.beginPath(); O.arc(cx + pos.x*scale, cy + pos.y*scale, 4, 0, Math.PI*2); O.fill();
+  // readouts
+  const r = Math.hypot(pos.x,pos.y);
+  const vc = Math.sqrt(Gc*st.M/r);
+  const ve = Math.sqrt(2)*vc;
+  const eps = 0.5*(vel.x*vel.x+vel.y*vel.y) - Gc*st.M/r;
+  O.fillStyle="rgba(226,232,240,.9)"; O.font="12px ui-sans-serif";
+  O.fillText(`r ≈ ${(r/1e3).toFixed(0)} km   v ≈ ${(Math.hypot(vel.x,vel.y)/1e3).toFixed(1)} km/s   v_c ≈ ${(vc/1e3).toFixed(1)} km/s   v_e ≈ ${(ve/1e3).toFixed(1)} km/s   ε ≈ ${eps.toExponential(2)} J/kg`, 20, 20);
+}
+
+function drawGV(){
+  const W=500,H=180;
+  GV.fillStyle="#0f172a"; GV.fillRect(0,0,W,H);
+  GV.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ GV.beginPath(); GV.moveTo(0,y); GV.lineTo(W,y); GV.stroke(); }
+  GV.strokeStyle="rgba(148,163,184,.6)"; GV.beginPath(); GV.moveTo(40,10); GV.lineTo(40,H-30); GV.lineTo(W-20,H-30); GV.stroke();
+  GV.fillStyle="rgba(226,232,240,.9)"; GV.font="12px ui-sans-serif";
+  GV.fillText("r (×R)", W-60, H-10); GV.save(); GV.translate(16,H/2); GV.rotate(-Math.PI/2); GV.fillText("g (m/s²) / V (scaled)", 0,0); GV.restore();
+  const r0 = st.R;
+  function px(rr){ return 40 + ((rr/r0)-1)/(10-1)*(W-60); } // 1R to 10R
+  // g
+  GV.strokeStyle="#60a5fa"; GV.lineWidth=2; GV.beginPath();
+  for (let rr=r0; rr<=10*r0; rr+= (9*r0)/200 ){
+    const g = Gc*st.M/(rr*rr);
+    const y = (H-30) - (g/(Gc*st.M/r0/r0))*(H-60); // normalized
+    const x = px(rr);
+    if (rr===r0) GV.moveTo(x,y); else GV.lineTo(x,y);
+  }
+  GV.stroke();
+  // V (scaled to fit)
+  GV.strokeStyle="#34d399"; GV.lineWidth=2; GV.beginPath();
+  for (let rr=r0; rr<=10*r0; rr+= (9*r0)/200 ){
+    const V = -Gc*st.M/rr;
+    const y = (H-30) - ((V/(-Gc*st.M/r0)))*(H-60);
+    const x = px(rr);
+    if (rr===r0) GV.moveTo(x,y); else GV.lineTo(x,y);
+  }
+  GV.stroke();
+}
+
+function drawEN(){
+  const W=500,H=180;
+  EN.fillStyle="#0f172a"; EN.fillRect(0,0,W,H);
+  EN.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ EN.beginPath(); EN.moveTo(0,y); EN.lineTo(W,y); EN.stroke(); }
+  EN.strokeStyle="rgba(148,163,184,.6)"; EN.beginPath(); EN.moveTo(40,10); EN.lineTo(40,H-30); EN.lineTo(W-20,H-30); EN.stroke();
+  EN.fillStyle="rgba(226,232,240,.9)"; EN.font="12px ui-sans-serif";
+  EN.fillText("r (×R)", W-60, H-10); EN.save(); EN.translate(16,H/2); EN.rotate(-Math.PI/2); EN.fillText("Energy per unit mass", 0,0); EN.restore();
+  const r0 = st.R;
+  function px(rr){ return 40 + ((rr/r0)-1)/(10-1)*(W-60); }
+  // plot specific energies: K for circular, U, and total
+  EN.strokeStyle="#fbbf24"; EN.lineWidth=2; EN.beginPath();
+  for (let rr=r0; rr<=10*r0; rr+= (9*r0)/200 ){
+    const vc = Math.sqrt(Gc*st.M/rr);
+    const K = 0.5*vc*vc; const U = -Gc*st.M/rr; const Etot = K+U;
+    const y = (H-30) - ((Etot/ (Gc*st.M/r0)) + 0.6)*(H-60); // scaled shift
+    const x = px(rr);
+    if (rr===r0) EN.moveTo(x,y); else EN.lineTo(x,y);
+  }
+  EN.stroke();
+}
+
+function loop(){
+  step(0.25); // seconds per frame
+  drawOrbit(); requestAnimationFrame(loop);
+}
+drawGV(); drawEN(); loop();
+</script>
+</body>
+</html>

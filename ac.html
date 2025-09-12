@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AC Circuits & Phasors (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">AC Circuits & Phasors</h1>
+    <div class="ml-auto text-sm text-slate-300">Series RLC • Impedance • Phase • Phasor view</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">R (Ω)</label>
+        <input id="R" type="range" min="1" max="500" step="1" value="100" class="w-full">
+        <div class="text-xs text-slate-300">R = <span id="RVal">100</span> Ω</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">L (mH)</label>
+        <input id="L" type="range" min="1" max="200" step="1" value="50" class="w-full">
+        <div class="text-xs text-slate-300">L = <span id="LVal">50</span> mH</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">C (µF)</label>
+        <input id="C" type="range" min="0.1" max="50" step="0.1" value="10" class="w-full">
+        <div class="text-xs text-slate-300">C = <span id="CVal">10.0</span> µF</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Drive f (Hz)</label>
+        <input id="f" type="range" min="0" max="1000" step="1" value="100" class="w-full">
+        <div class="text-xs text-slate-300">f = <span id="fVal">100</span> Hz</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">V_rms (V)</label>
+        <input id="V" type="range" min="1" max="50" step="1" value="10" class="w-full">
+        <div class="text-xs text-slate-300">V_rms = <span id="VVal">10</span> V</div>
+      </div>
+      <div class="flex items-end">
+        <button id="sweep" class="btn w-full">Sweep frequency</button>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      Z = √(R² + (X_L − X_C)²),  where X_L = ωL, X_C = 1/(ωC). Phase φ = arctan((X_L − X_C)/R). Resonance at ω₀ = 1/√(LC).
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="phasor" width="1000" height="240" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">|I| vs f (sweep)</div>
+          <canvas id="bode" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">Equations</div>
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Series RLC, sinusoidal steady-state:
+  X_L = ωL,  X_C = 1/(ωC)
+  Z = √(R² + (X_L − X_C)²)
+  I_rms = V_rms / Z
+  Phase angle: φ = arctan((X_L − X_C)/R)  (positive ⇒ current lags)
+  Resonance: ω₀ = 1/√(LC) ⇒ Z_min = R, current maximum
+</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const P = document.getElementById('phasor').getContext('2d');
+const B = document.getElementById('bode').getContext('2d');
+const st = { R:100, L:50e-3, C:10e-6, f:100, V:10 };
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('RVal').textContent = st.R.toFixed(0);
+  ids('LVal').textContent = (st.L*1e3).toFixed(0);
+  ids('CVal').textContent = (st.C*1e6).toFixed(1);
+  ids('fVal').textContent = st.f.toFixed(0);
+  ids('VVal').textContent = st.V.toFixed(0);
+}
+['R','L','C','f','V'].forEach(id=> ids(id).addEventListener('input', e=>{
+  if(id==='R') st.R=+e.target.value;
+  if(id==='L') st.L=(+e.target.value)*1e-3;
+  if(id==='C') st.C=(+e.target.value)*1e-6;
+  if(id==='f') st.f=+e.target.value;
+  if(id==='V') st.V=+e.target.value;
+  sync(); drawPhasor();
+}));
+document.getElementById('sweep').addEventListener('click', drawSweep);
+
+function calc(fff){
+  const w = 2*Math.PI*(fff ?? st.f);
+  const XL = w*st.L;
+  const XC = 1/(w*st.C || 1e-9);
+  const Z = Math.sqrt(st.R*st.R + (XL-XC)*(XL-XC));
+  const phi = Math.atan2((XL-XC), st.R);
+  const I = st.V / (Z || 1e-9);
+  return {w,XL,XC,Z,phi,I};
+}
+
+function drawPhasor(){
+  const c = P.canvas; const W=c.width,H=c.height;
+  P.fillStyle="#0f172a"; P.fillRect(0,0,W,H);
+  // axes
+  P.strokeStyle="rgba(148,163,184,.6)"; P.beginPath(); P.moveTo(W/2,20); P.lineTo(W/2,H-20); P.moveTo(40,H/2); P.lineTo(W-40,H/2); P.stroke();
+  const {XL,XC,phi,I} = calc();
+  const scale = 60;
+  // Draw R along x, j(XL-XC) along y
+  P.strokeStyle="#60a5fa"; P.lineWidth=2;
+  P.beginPath(); P.moveTo(W/2, H/2); P.lineTo(W/2 + st.R/scale, H/2); P.stroke();
+  P.strokeStyle="#34d399"; P.beginPath(); P.moveTo(W/2 + st.R/scale, H/2); P.lineTo(W/2 + st.R/scale, H/2 - (XL-XC)/scale); P.stroke();
+  P.strokeStyle="#fbbf24"; P.beginPath(); P.moveTo(W/2, H/2); P.lineTo(W/2 + (st.R/scale), H/2 - (XL-XC)/scale); P.stroke();
+  P.fillStyle="rgba(226,232,240,.9)"; P.font="12px ui-sans-serif";
+  P.fillText(`|Z| ≈ ${Math.sqrt((st.R)**2 + (XL-XC)**2).toFixed(1)} Ω,  φ ≈ ${(phi*180/Math.PI).toFixed(1)}°,  I_rms ≈ ${I.toFixed(2)} A`, 20, 20);
+  P.fillText("R", W/2 + st.R/scale + 6, H/2 - 6);
+  P.fillText("j(X_L−X_C)", W/2 + st.R/scale + 6, H/2 - (XL-XC)/scale - 6);
+  P.fillText("Z", W/2 + st.R/scale/2, H/2 - (XL-XC)/scale/2 - 8);
+}
+
+function drawSweep(){
+  const c = B.canvas; const W=c.width,H=c.height;
+  B.fillStyle="#0f172a"; B.fillRect(0,0,W,H);
+  B.strokeStyle="rgba(148,163,184,.25)"; for (let y=0;y<H;y+=30){ B.beginPath(); B.moveTo(0,y); B.lineTo(W,y); B.stroke(); }
+  // sweep f logarithmically-ish
+  const pts=[];
+  for (let f=1; f<=1000; f+=5){
+    const {I} = calc(f);
+    pts.push({f,I});
+  }
+  const Imax = Math.max(...pts.map(p=>p.I), 1);
+  function px(f){ return 40 + ((Math.log10(f)-0)/(3))* (W-60); }
+  function py(I){ return H-30 - (I/Imax)*(H-60); }
+  // axes
+  B.strokeStyle="rgba(148,163,184,.6)"; B.beginPath(); B.moveTo(40,10); B.lineTo(40,H-30); B.lineTo(W-20,H-30); B.stroke();
+  B.fillStyle="rgba(226,232,240,.9)"; B.font="12px ui-sans-serif"; B.fillText("f (Hz, ~log)", W-80, H-10);
+  B.save(); B.translate(16,H/2); B.rotate(-Math.PI/2); B.fillText("|I| (A)",0,0); B.restore();
+  // plot
+  B.strokeStyle="#60a5fa"; B.lineWidth=2; B.beginPath(); let first=true;
+  for (const p of pts){ const x=px(p.f), y=py(p.I); if(first){B.moveTo(x,y); first=false;} else B.lineTo(x,y); } B.stroke();
+  // resonance marker
+  const f0 = 1/(2*Math.PI*Math.sqrt(st.L*st.C));
+  const xr = 40 + ((Math.log10(f0)-0)/3)*(W-60);
+  B.strokeStyle="#fbbf24"; B.setLineDash([4,4]); B.beginPath(); B.moveTo(xr,10); B.lineTo(xr,H-30); B.stroke(); B.setLineDash([]);
+  B.fillStyle="rgba(226,232,240,.9)"; B.fillText(`f₀ ≈ ${f0.toFixed(1)} Hz`, xr+6, 16);
+}
+
+sync(); drawPhasor(); drawSweep();
+</script>
+</body>
+</html>

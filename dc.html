@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DC Circuits — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">DC Circuits — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">Series & parallel • Internal resistance • I–V sweep</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div>
+      <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Topology</label>
+      <select id="topo" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+        <option value="series" selected>Series (V — r — R₁ — R₂)</option>
+        <option value="parallel">Parallel (V — r — (R₁ ∥ R₂))</option>
+        <option value="single">Single load (V — r — R)</option>
+      </select>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">EMF V (V)</label>
+        <input id="V" type="range" min="1" max="24" step="0.5" value="12" class="w-full">
+        <div class="text-xs text-slate-300">V = <span id="VVal">12.0</span> V</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Internal r (Ω)</label>
+        <input id="r" type="range" min="0" max="10" step="0.1" value="1.0" class="w-full">
+        <div class="text-xs text-slate-300">r = <span id="rVal">1.0</span> Ω</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">R₁ (Ω)</label>
+        <input id="R1" type="range" min="1" max="200" step="1" value="60" class="w-full">
+        <div class="text-xs text-slate-300">R₁ = <span id="R1Val">60</span> Ω</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">R₂ (Ω)</label>
+        <input id="R2" type="range" min="1" max="200" step="1" value="90" class="w-full">
+        <div class="text-xs text-slate-300">R₂ = <span id="R2Val">90</span> Ω</div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <button id="sweep" class="btn">Plot I–V curve</button>
+      <button id="exportCSV" class="btn">Export CSV</button>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      Calculates currents/voltages using Ohm’s law & series/parallel combinations. I–V sweep assumes R varies (load curve). Battery with internal resistance: V = E − Ir gives gradient −r.
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="schem" width="1000" height="260" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="section p-3"><div class="text-slate-400 text-xs uppercase mb-1">Calculated values</div>
+          <div id="readouts" class="text-sm font-mono"></div>
+        </div>
+        <div class="section p-3"><div class="text-slate-400 text-xs uppercase mb-1">I–V plot (load sweep)</div>
+          <canvas id="plot" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+      </div>
+      <div class="section p-3">
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Series: R_T = r + R₁ + R₂,  I = E / R_T,  V_R₁ = I R₁,  V_R₂ = I R₂
+Parallel: R_T = r + (R₁ R₂)/(R₁ + R₂), same V across branches, I = E / R_T
+Internal resistance: terminal PD V = E − I r  ⇒ straight-line with slope −r
+</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const S = document.getElementById('schem').getContext('2d');
+const P = document.getElementById('plot').getContext('2d');
+const out = document.getElementById('readouts');
+
+const st = { topo:'series', E:12, r:1, R1:60, R2:90 };
+
+const ids = s=>document.getElementById(s);
+function sync(){
+  ids('VVal').textContent = st.E.toFixed(1);
+  ids('rVal').textContent = st.r.toFixed(1);
+  ids('R1Val').textContent = st.R1.toFixed(0);
+  ids('R2Val').textContent = st.R2.toFixed(0);
+}
+ids('topo').addEventListener('change', e=>{ st.topo=e.target.value; draw(); calc(); });
+ids('V').addEventListener('input', e=>{ st.E=+e.target.value; sync(); draw(); calc(); });
+ids('r').addEventListener('input', e=>{ st.r=+e.target.value; sync(); draw(); calc(); });
+ids('R1').addEventListener('input', e=>{ st.R1=+e.target.value; sync(); draw(); calc(); });
+ids('R2').addEventListener('input', e=>{ st.R2=+e.target.value; sync(); draw(); calc(); });
+
+ids('sweep').addEventListener('click', sweep);
+ids('exportCSV').addEventListener('click', exportCSV);
+
+function seriesValues(){
+  const RT = st.r + st.R1 + st.R2;
+  const I = st.E / RT;
+  return {RT,I, VR1:I*st.R1, VR2:I*st.R2, Vr:I*st.r, Vterm: st.E - I*st.r};
+}
+function parallelValues(){
+  const Rp = (st.R1*st.R2)/(st.R1+st.R2);
+  const RT = st.r + Rp;
+  const I = st.E / RT;
+  const Vload = I*Rp;
+  const I1 = Vload / st.R1;
+  const I2 = Vload / st.R2;
+  return {RT,I, Vload, I1, I2, Vr:I*st.r, Vterm: st.E - I*st.r};
+}
+function singleValues(){
+  const RT = st.r + st.R1;
+  const I = st.E / RT;
+  return {RT,I, VR:I*st.R1, Vr:I*st.r, Vterm: st.E - I*st.r};
+}
+
+function calc(){
+  let text="";
+  if (st.topo==='series'){
+    const v=seriesValues();
+    text = `RT=${v.RT.toFixed(2)} Ω, I=${v.I.toFixed(3)} A
+VR1=${v.VR1.toFixed(2)} V, VR2=${v.VR2.toFixed(2)} V, Vr=${v.Vr.toFixed(2)} V
+Terminal PD V=E−Ir=${v.Vterm.toFixed(2)} V`;
+  } else if (st.topo==='parallel'){
+    const v=parallelValues();
+    text = `RT=${v.RT.toFixed(2)} Ω, I=${v.I.toFixed(3)} A
+V_load=${v.Vload.toFixed(2)} V, I1=${v.I1.toFixed(3)} A, I2=${v.I2.toFixed(3)} A, Vr=${v.Vr.toFixed(2)} V
+Terminal PD V=E−Ir=${v.Vterm.toFixed(2)} V`;
+  } else {
+    const v=singleValues();
+    text = `RT=${v.RT.toFixed(2)} Ω, I=${v.I.toFixed(3)} A
+VR=${v.VR.toFixed(2)} V, Vr=${v.Vr.toFixed(2)} V
+Terminal PD V=E−Ir=${v.Vterm.toFixed(2)} V`;
+  }
+  out.textContent = text;
+}
+function draw(){
+  const c = document.getElementById('schem'); const W=c.width, H=c.height;
+  S.fillStyle="#0f172a"; S.fillRect(0,0,W,H);
+  S.strokeStyle="#e2e8f0"; S.lineWidth=2; S.lineCap="round";
+  function wire(ax,ay,bx,by){ S.beginPath(); S.moveTo(ax,ay); S.lineTo(bx,by); S.stroke(); }
+  function resistor(x,y,w=60,h=20){ S.strokeRect(x,y,w,h); }
+  function battery(x,y,h=40){ S.beginPath(); S.moveTo(x,y); S.lineTo(x,y+h); S.moveTo(x+10,y+5); S.lineTo(x+10,y+h-5); S.stroke(); }
+  const y=H/2;
+  // left battery + internal r
+  battery(80,y-30,60);
+  wire(90,y,140,y);
+  resistor(140,y-12,50,24); // internal r
+  wire(190,y,240,y);
+  if (st.topo==='series'){
+    resistor(240,y-12,70,24); wire(310,y,380,y);
+    resistor(380,y-12,70,24); wire(450,y,520,y);
+  } else if (st.topo==='parallel'){
+    // split
+    wire(240,y,320,y);
+    wire(320,y,320,y-60); wire(320,y,320,y+60);
+    resistor(320,y-72,70,24);
+    resistor(320,y+48,70,24);
+    wire(390,y-60,470,y-60); wire(390,y+60,470,y+60);
+    wire(470,y-60,470,y); wire(470,y+60,470,y);
+    wire(470,y,520,y);
+  } else {
+    resistor(240,y-12,80,24); wire(320,y,520,y);
+  }
+  wire(520,y,520, y+60); wire(520,y+60,80,y+60); wire(80,y+60,80,y);
+  // labels
+  S.fillStyle="rgba(226,232,240,.9)"; S.font="12px ui-sans-serif";
+  S.fillText(`E=${st.E.toFixed(1)}V`, 60, y-40);
+  S.fillText(`r=${st.r.toFixed(1)}Ω`, 145, y-18);
+  if (st.topo==='series'){ S.fillText(`R1=${st.R1.toFixed(0)}Ω`, 245, y-18); S.fillText(`R2=${st.R2.toFixed(0)}Ω`, 385, y-18); }
+  if (st.topo==='parallel'){ S.fillText(`R1=${st.R1.toFixed(0)}Ω`, 325, y-78); S.fillText(`R2=${st.R2.toFixed(0)}Ω`, 325, y+66); }
+  if (st.topo==='single'){ S.fillText(`R=${st.R1.toFixed(0)}Ω`, 245, y-18); }
+}
+function sweep(){
+  // vary load (R1) and compute terminal V, current; plot V vs I (or I vs V)
+  const pts=[];
+  const saveR1=st.R1;
+  for (let R=2; R<=200; R+=2){
+    st.R1 = R;
+    let I=0, Vt=0;
+    if (st.topo==='series'){
+      const v=seriesValues(); I=v.I; Vt=v.Vterm;
+    } else if (st.topo==='parallel'){
+      const v=parallelValues(); I=v.I; Vt=v.Vterm;
+    } else {
+      const v=singleValues(); I=v.I; Vt=v.Vterm;
+    }
+    pts.append = null;
+    pts.push({I,V:Vt});
+  }
+  st.R1 = saveR1;
+  // draw
+  const W=P.canvas.width, H=P.canvas.height;
+  P.fillStyle="#0f172a"; P.fillRect(0,0,W,H);
+  P.strokeStyle="rgba(148,163,184,.25)"; P.lineWidth=1;
+  for (let y=0;y<H;y+=30){ P.beginPath(); P.moveTo(0,y); P.lineTo(W,y); P.stroke(); }
+  const Imax = Math.max(1, ...pts.map(d=>d.I));
+  function px(I){ return 40 + (I/Imax)*(W-60); }
+  function py(V){ return H-30 - (V/st.E)*(H-60); }
+  // axes
+  P.strokeStyle="rgba(148,163,184,.6)"; P.beginPath(); P.moveTo(40,10); P.lineTo(40,H-30); P.lineTo(W-20,H-30); P.stroke();
+  P.fillStyle="rgba(226,232,240,.9)"; P.font="12px ui-sans-serif";
+  P.fillText("I (A)", W-40, H-10); P.save(); P.translate(16, H/2); P.rotate(-Math.PI/2); P.fillText("V (V)", 0,0); P.restore();
+  // curve
+  P.strokeStyle="#60a5fa"; P.lineWidth=2; P.beginPath();
+  let first=true;
+  for (const d of pts){ const x=px(d.I), y=py(d.V); if (first){ P.moveTo(x,y); first=false; } else P.lineTo(x,y); }
+  P.stroke();
+}
+function exportCSV(){
+  const lines = ["topology,E,r,R1,R2"];
+  lines.push(`${st.topo},${st.E},${st.r},${st.R1},${st.R2}`);
+  const blob = new Blob([lines.join("\\n")], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download="dc_circuit_params.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+sync(); draw(); calc(); sweep();
+</script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Projectile Motion — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Projectile Motion — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">Air resistance on/off • Compare shots • Range/apex/time</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Speed u (m/s)</label>
+        <input id="u" type="range" min="1" max="80" step="1" value="30" class="w-full">
+        <div class="text-xs text-slate-300">u = <span id="uVal">30</span> m/s</div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Angle θ (°)</label>
+        <input id="ang" type="range" min="0" max="89" step="1" value="40" class="w-full">
+        <div class="text-xs text-slate-300">θ = <span id="angVal">40</span>°</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">g (m/s²)</label>
+        <input id="g" type="range" min="1" max="20" step="0.1" value="9.81" class="w-full">
+        <div class="text-xs text-slate-300">g = <span id="gVal">9.81</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Air drag</label>
+        <select id="drag" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+          <option value="none" selected>None (vacuum)</option>
+          <option value="linear">Linear: F = −k v</option>
+          <option value="quadratic">Quadratic: F = −c v|v|</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">k (linear) or c (quad)</label>
+        <input id="coef" type="range" min="0" max="0.2" step="0.005" value="0.02" class="w-full">
+        <div class="text-xs text-slate-300">coef = <span id="coefVal">0.020</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Time step Δt (ms)</label>
+        <input id="dt" type="range" min="5" max="50" step="1" value="16" class="w-full">
+        <div class="text-xs text-slate-300">dt = <span id="dtVal">16</span> ms</div>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button id="fire" class="btn">🎯 Fire</button>
+      <button id="compare" class="btn">➕ Add comparison</button>
+      <button id="clear" class="btn ml-auto">🧹 Clear</button>
+    </div>
+    <div class="text-xs text-slate-300 leading-6">
+      Ideal (no drag): R = u² sin2θ / g,  t = 2u sinθ / g,  h = u² sin²θ / (2g).<br>
+      Drag integrated numerically (semi-implicit Euler).
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="field" width="1000" height="420" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div id="stats" class="text-sm font-mono px-2"></div>
+      <div class="section p-3">
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Equations (vacuum):
+  x = u cosθ · t
+  y = u sinθ · t − ½ g t²
+  Range R = u² sin2θ / g
+Air resistance models:
+  Linear: a_drag = −(k/m) v
+  Quadratic: a_drag = −(c/m) v |v|
+</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const C = document.getElementById('field'); const ctx=C.getContext('2d');
+const st = { u:30, ang:40, g:9.81, drag:'none', coef:0.02, dt:0.016 };
+const trails = []; // each: {pts:[{x,y}], color, meta}
+
+const ids=s=>document.getElementById(s);
+function sync(){
+  ids('uVal').textContent = st.u.toFixed(0);
+  ids('angVal').textContent = st.ang.toFixed(0);
+  ids('gVal').textContent = st.g.toFixed(2);
+  ids('coefVal').textContent = (+st.coef).toFixed(3);
+  ids('dtVal').textContent = Math.round(st.dt*1000);
+}
+['u','ang','g','coef','dt'].forEach(id=> ids(id).addEventListener('input', e=>{ st[id]= (id==='dt'? (+e.target.value)/1000 : +e.target.value); sync(); draw(); }));
+ids('drag').addEventListener('change', e=>{ st.drag=e.target.value; draw(); });
+
+ids('fire').addEventListener('click', ()=> shoot(false));
+ids('compare').addEventListener('click', ()=> shoot(true));
+ids('clear').addEventListener('click', ()=>{ trails.length=0; draw(); document.getElementById('stats').textContent=""; });
+
+function colorFor(idx){
+  const cols=["#60a5fa","#34d399","#fbbf24","#f472b6","#a78bfa"];
+  return cols[idx%cols.length];
+}
+
+function shoot(keepExisting){
+  if (!keepExisting) trails.length=0;
+  const ang = st.ang*Math.PI/180;
+  const v = {x: st.u*Math.cos(ang), y: st.u*Math.sin(ang)};
+  const pos = {x:0, y:0};
+  const pts=[{x:0,y:0}];
+  let t=0;
+  const dt=st.dt;
+  const g=st.g;
+  const mass=1;
+  while (pos.y>=0 && t<30){
+    // drag acceleration
+    let ax=0, ay=-g;
+    if (st.drag==='linear'){
+      ax += -st.coef*v.x/mass;
+      ay += -st.coef*v.y/mass;
+    } else if (st.drag==='quadratic'){
+      const sp = Math.hypot(v.x,v.y);
+      ax += -st.coef*v.x*sp/mass;
+      ay += -st.coef*v.y*sp/mass;
+    }
+    v.x += ax*dt; v.y += ay*dt;
+    pos.x += v.x*dt; pos.y += v.y*dt;
+    pts.push({x:pos.x, y:Math.max(0,pos.y)});
+    t += dt;
+  }
+  const range = pos.x;
+  const tflight = t;
+  const hmax = Math.max(...pts.map(p=>p.y));
+  trails.push({pts, color: colorFor(trails.length), meta:{range, t:tflight, h:hmax, drag:st.drag}});
+  draw();
+  document.getElementById('stats').textContent = trails.map((tr,i)=>`[${i+1}] ${tr.meta.drag}: R=${tr.meta.range.toFixed(1)} m  t=${tr.meta.t.toFixed(2)} s  h=${tr.meta.h.toFixed(1)} m`).join("   |   ");
+}
+
+function draw(){
+  const W=C.width, H=C.height;
+  ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,W,H);
+  // ground and grid
+  ctx.strokeStyle="rgba(148,163,184,.25)"; ctx.lineWidth=1;
+  for (let x=0;x<W;x+=50){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y=0;y<H;y+=50){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.strokeStyle="rgba(148,163,184,.6)"; ctx.beginPath(); ctx.moveTo(0,H-40); ctx.lineTo(W,H-40); ctx.stroke();
+  // axes labels
+  ctx.fillStyle="rgba(226,232,240,.9)"; ctx.font="12px ui-sans-serif";
+  ctx.fillText("x (m)", W-50, H-10); ctx.fillText("y (m)", 10, 20);
+  // scale (m to px)
+  const ppm=12;
+  // draw trails
+  trails.forEach(tr=>{
+    ctx.strokeStyle=tr.color; ctx.lineWidth=2; ctx.beginPath();
+    tr.pts.forEach((p,j)=>{
+      const x=60 + p.x*ppm, y=H-40 - p.y*ppm;
+      if (j===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  });
+}
+sync(); draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inverse‑Square Law — Teaching Edition (A‑Level)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="color-scheme" content="dark light">
+<style>
+  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
+  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
+  .btn:hover{ background:rgba(255,255,255,.08) }
+  canvas{ image-rendering: crisp-edges; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
+    <h1 class="text-lg sm:text-xl font-semibold">Inverse‑Square Law — Teaching Edition</h1>
+    <div class="ml-auto text-sm text-slate-300">Intensity ∝ 1/r²</div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
+  <aside class="section p-4 space-y-4">
+    <div>
+      <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Phenomenon</label>
+      <select id="mode" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
+        <option value="light" selected>Light Intensity</option>
+        <option value="gravity">Gravitational Force</option>
+        <option value="electric">Electric Field (point charge)</option>
+      </select>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Source Strength</label>
+        <input id="strength" type="range" min="1" max="100" step="1" value="20" class="w-full">
+        <div class="text-xs text-slate-300">S = <span id="strengthVal">20</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Detector radius (m)</label>
+        <input id="radius" type="range" min="0.5" max="10" step="0.1" value="4" class="w-full">
+        <div class="text-xs text-slate-300">r = <span id="radiusVal">4.0</span> m</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1"># Detectors</label>
+        <input id="ndet" type="range" min="4" max="64" step="1" value="24" class="w-full">
+        <div class="text-xs text-slate-300">N = <span id="ndetVal">24</span></div>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Noise (%)</label>
+        <input id="noise" type="range" min="0" max="20" step="1" value="2" class="w-full">
+        <div class="text-xs text-slate-300">± <span id="noiseVal">2</span>%</div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <button id="play" class="btn">▶ Animate</button>
+      <button id="pause" class="btn">⏸ Pause</button>
+      <button id="reset" class="btn ml-auto">↺ Reset</button>
+    </div>
+
+    <div class="text-xs text-slate-300 leading-6">
+      Central source radiates isotropically. Detectors measure intensity/field on a circle of radius r.
+      Plot shows I vs r (linear) and log–log fit ~ r⁻².
+    </div>
+  </aside>
+
+  <section class="grid gap-4">
+    <div class="section p-3 grid gap-3">
+      <canvas id="field" width="1000" height="460" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">I (or |F|, |E|) vs r</div>
+          <canvas id="plot" width="500" height="180" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
+        </div>
+        <div class="section p-3">
+          <div class="text-slate-400 text-xs uppercase mb-1">Equations</div>
+<pre class="text-slate-200 text-xs leading-6 whitespace-pre-wrap">
+Point source radiating uniformly over a sphere:
+Area = 4π r²  ⇒  Intensity I ∝ 1 / r²
+
+Gravity (point mass): |F| = G m₁ m₂ / r²
+Electric (point charge): |E| = k |q| / r²
+
+On a log–log plot, slope ≈ −2 confirms the inverse‑square law.
+</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const F = document.getElementById('field');
+const P = document.getElementById('plot');
+const fctx = F.getContext('2d');
+const pctx = P.getContext('2d');
+
+let params = { mode:'light', S:20, r:4, N:24, noise:2 };
+let running=true, t=0;
+const ppm = 60;
+
+function sync(){
+  document.getElementById('strengthVal').textContent = params.S.toFixed(0);
+  document.getElementById('radiusVal').textContent = params.r.toFixed(1);
+  document.getElementById('ndetVal').textContent = params.N.toString();
+  document.getElementById('noiseVal').textContent = params.noise.toFixed(0);
+}
+['mode','strength','radius','ndet','noise'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', e=>{
+    if (id==='mode') params.mode = e.target.value;
+    if (id==='strength') params.S = +e.target.value;
+    if (id==='radius') params.r = +e.target.value;
+    if (id==='ndet') params.N = +e.target.value;
+    if (id==='noise') params.noise = +e.target.value;
+    sync();
+  });
+});
+document.getElementById('play').addEventListener('click', ()=> running=true);
+document.getElementById('pause').addEventListener('click', ()=> running=false);
+document.getElementById('reset').addEventListener('click', ()=>{ t=0; });
+
+function fieldStrength(r){
+  // Base 1/r^2 scaling; scale factor varies per mode (for labels only)
+  const base = params.S / (r*r);
+  switch(params.mode){
+    case 'gravity': return base; // proportional
+    case 'electric': return base;
+    default: return base;
+  }
+}
+
+function draw(){
+  fctx.fillStyle="#0f172a"; fctx.fillRect(0,0,F.width,F.height);
+  // source
+  const cx=F.width/2, cy=F.height/2;
+  fctx.fillStyle="#fde68a"; fctx.beginPath(); fctx.arc(cx,cy,6,0,Math.PI*2); fctx.fill();
+  // detectors ring
+  const R = params.r*ppm;
+  fctx.strokeStyle="rgba(148,163,184,.4)"; fctx.beginPath(); fctx.arc(cx,cy,R,0,Math.PI*2); fctx.stroke();
+  // rays
+  fctx.strokeStyle="rgba(251,191,36,.35)";
+  for (let a=0;a<Math.PI*2;a+=Math.PI/16){
+    fctx.beginPath(); fctx.moveTo(cx,cy); fctx.lineTo(cx+Math.cos(a)*R, cy+Math.sin(a)*R); fctx.stroke();
+  }
+  // detectors with readings
+  const data=[];
+  for (let i=0;i<params.N;i++){
+    const ang = i/params.N * Math.PI*2 + t*0.2;
+    const x = cx + Math.cos(ang)*R;
+    const y = cy + Math.sin(ang)*R;
+    const val = fieldStrength(params.r) * (1 + (Math.random()*2-1)*params.noise/100);
+    data.push({r:params.r, I:val});
+    // marker with brightness proportional to reading
+    const v = Math.tanh(val*0.2);
+    const c = Math.floor(80+ v*160);
+    fctx.fillStyle = `rgb(${c},${c},255)`;
+    fctx.beginPath(); fctx.arc(x,y,4,0,Math.PI*2); fctx.fill();
+  }
+
+  // plot I vs r (collect multiple radii samples for a curve)
+  drawPlot(data);
+}
+
+let history=[]; // keep the last curve family
+function drawPlot(latest){
+  // add one sample family (same r for all points here)
+  history.push({r: latest[0].r, I: latest[0].I});
+  if (history.length>80) history.shift();
+
+  const W=P.width, H=P.height;
+  pctx.fillStyle="#0f172a"; pctx.fillRect(0,0,W,H);
+  pctx.strokeStyle="rgba(148,163,184,.25)"; pctx.lineWidth=1;
+  for (let y=0;y<H;y+=30){ pctx.beginPath(); pctx.moveTo(0,y); pctx.lineTo(W,y); pctx.stroke(); }
+  pctx.fillStyle="rgba(226,232,240,.9)"; pctx.font="12px ui-sans-serif";
+  pctx.fillText("linear scale", W-90, H-10);
+
+  const minR=0.5, maxR=10, maxI = Math.max(...history.map(d=>d.I), 1);
+  function px(r){ return 40 + ( (r-minR)/(maxR-minR) )*(W-60); }
+  function py(I){ return H-30 - (I/maxI)*(H-60); }
+
+  // axes
+  pctx.strokeStyle="rgba(148,163,184,.6)"; pctx.beginPath();
+  pctx.moveTo(40,10); pctx.lineTo(40,H-30); pctx.lineTo(W-20,H-30); pctx.stroke();
+  pctx.fillText("r (m)", W-40, H-10);
+  pctx.save(); pctx.translate(16, H/2); pctx.rotate(-Math.PI/2); pctx.fillText("I (arb.)", 0,0); pctx.restore();
+
+  // draw curve (smoothed by averaging same-r points)
+  const samples = [];
+  for (let r=0.5;r<=10;r+=0.1){
+    const I = fieldStrength(r);
+    samples.push({r,I});
+  }
+  pctx.strokeStyle="#60a5fa"; pctx.lineWidth=2; pctx.beginPath();
+  let first=true;
+  for (const d of samples){
+    const x=px(d.r), y=py(d.I);
+    if (first){ pctx.moveTo(x,y); first=false; } else pctx.lineTo(x,y);
+  }
+  pctx.stroke();
+
+  // log-log slope indicator
+  pctx.fillStyle="rgba(226,232,240,.9)"; pctx.fillText("log–log slope ≈ −2", 60, 16);
+}
+
+function loop(){
+  if (running) t += 0.016;
+  draw();
+  requestAnimationFrame(loop);
+}
+sync(); loop();
+</script>
+</body>
+</html>
