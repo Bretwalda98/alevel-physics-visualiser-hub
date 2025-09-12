@@ -3,174 +3,624 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Circular Motion & Banked Curves (A‑Level)</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<meta name="color-scheme" content="dark light">
+<title>Circular Motion Pro+ v2 — A‑Level Physics Hub</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230b1020'/%3E%3Cpath d='M32 7a25 25 0 1025 25A25 25 0 0032 7zm0 4a21 21 0 11-21 21A21 21 0 0132 11z' fill='%23A3D4FF'/%3E%3Cpath d='M32 11a21 21 0 0120.8 18.1' stroke='%2378B3FF' stroke-width='3' fill='none'/%3E%3Ccircle cx='53' cy='29' r='4' fill='%2378B3FF'/%3E%3C/svg%3E"/>
 <style>
-  .section{ border:1px solid rgba(255,255,255,.10); border-radius:1rem; background:rgba(255,255,255,.04); }
-  .btn{ border:1px solid rgba(255,255,255,.12); padding:.5rem .8rem; border-radius:.6rem; }
-  .btn:hover{ background:rgba(255,255,255,.08) }
-  canvas{ image-rendering: crisp-edges; }
+  :root{
+    --bg:#0b1020; --panel:#0f1730; --ink:#deecff; --muted:#a8c1ff; --accent:#7fb3ff; --accent2:#9af5d5; --danger:#ff8ea1; --ok:#7ef7a4; --warn:#ffd38b;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:linear-gradient(180deg,#0b1020 0%,#0b0f24 60%,#0d1228 100%);color:var(--ink);font:500 15px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
+  .app{display:grid;grid-template-rows:auto 1fr;min-height:100vh}
+  header{position:sticky;top:0;z-index:5;backdrop-filter:saturate(140%) blur(8px);background:rgba(10,16,34,.7);border-bottom:1px solid rgba(120,179,255,.2)}
+  .bar{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 14px}
+  .brand{display:flex;gap:10px;align-items:center}
+  .brand h1{font-size:16px;margin:0;color:#e7f0ff;letter-spacing:.2px}
+  .mode{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  select, input[type="number"], button, input[type="range"], input[type="text"]{background:#0e1630;border:1px solid rgba(120,179,255,.25);color:var(--ink);border-radius:9px;padding:8px 10px}
+  select:focus,input:focus,button:focus{outline:2px solid rgba(159,245,213,.35)}
+  button{cursor:pointer}
+  button.primary{background:linear-gradient(180deg,#2146a3,#19377f);border-color:#355fd6}
+  button.ghost{background:transparent;border-color:rgba(120,179,255,.25)}
+  .wrap{display:grid;grid-template-columns:340px 1fr 380px; gap:14px; padding:14px}
+  .card{background:radial-gradient(120% 120% at 10% -10%,rgba(127,179,255,.15),transparent 60%),radial-gradient(120% 120% at 120% 0%,rgba(154,245,213,.12),transparent 50%),linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.0)); border:1px solid rgba(120,179,255,.18); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.3); padding:14px}
+  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.14em;color:#9cc7ff;margin:2px 0 8px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row{display:grid;grid-template-columns:130px 1fr 70px; gap:8px; align-items:center; margin:6px 0}
+  .hint{font-size:12px;color:#a9bff7;opacity:.9}
+  .value{font-variant-numeric:tabular-nums}
+  canvas{width:100%;height:100%;display:block;border-radius:14px;background:radial-gradient(120% 100% at 50% -10%,rgba(127,179,255,.06),transparent 60%), #0a1126}
+  .stage{position:relative;height:min(72vh,780px)}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid rgba(120,179,255,.25);border-radius:999px}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .muted{opacity:.86}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+  .hr{height:1px;background:linear-gradient(90deg,transparent,rgba(120,179,255,.25),transparent);margin:10px 0}
+  details{border:1px dashed rgba(120,179,255,.25);border-radius:12px;padding:10px}
+  summary{cursor:pointer;color:#cfe3ff}
+  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .kpi .box{background:rgba(127,179,255,.08);border:1px solid rgba(127,179,255,.2);border-radius:12px;padding:10px}
+  .warn{color:var(--danger)}
+  .ok{color:var(--ok)}
+  .tiny{font-size:12px}
+  .forces table{width:100%;border-collapse:collapse}
+  .forces th,.forces td{border-bottom:1px dashed rgba(127,179,255,.25);padding:6px 4px;text-align:right}
+  .forces th:first-child,.forces td:first-child{text-align:left}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .badge{padding:4px 8px;border-radius:999px;border:1px solid rgba(127,179,255,.3);font-size:12px}
 </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100">
-<header class="sticky top-0 z-40 border-b border-white/10 bg-slate-900/60 backdrop-blur">
-  <div class="mx-auto max-w-7xl px-3 sm:px-6 py-3 flex items-center gap-3">
-    <h1 class="text-lg sm:text-xl font-semibold">Circular Motion & Banked Curves</h1>
-    <div class="ml-auto text-sm text-slate-300">Centripetal force • Friction limits • Conical pendulum</div>
-  </div>
-</header>
-
-<main class="mx-auto max-w-7xl px-3 sm:px-6 py-5 grid gap-4 xl:grid-cols-[360px_1fr]">
-  <aside class="section p-4 space-y-4">
-    <div class="grid grid-cols-2 gap-3">
-      <div>
-        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Scenario</label>
-        <select id="mode" class="w-full rounded-md bg-slate-900/60 border border-white/10 px-2 py-2">
-          <option value="banked" selected>Banked curve (car)</option>
-          <option value="conical">Conical pendulum</option>
+<body>
+<div class="app">
+  <header>
+    <div class="bar">
+      <div class="brand">
+        <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#0b1020"/><path d="M32 7a25 25 0 1025 25A25 25 0 0032 7zm0 4a21 21 0 11-21 21A21 21 0 0132 11z" fill="#A3D4FF"/><circle cx="53" cy="29" r="4" fill="#78B3FF"/></svg>
+        <h1>Circular Motion Pro+ <span class="muted">v2</span> <span class="muted">— A‑Level Physics Hub</span></h1>
+      </div>
+      <div class="mode">
+        <label class="hint">Scenario</label>
+        <select id="scenario">
+          <option value="ucm">Uniform Circular Motion (horizontal)</option>
+          <option value="loop">Vertical Loop (energy‑conserving)</option>
+          <option value="banked">Banked Curve (road/track)</option>
+          <option value="conical">Conical Pendulum</option>
         </select>
-      </div>
-      <div>
-        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Mass m (kg)</label>
-        <input id="m" type="range" min="0.1" max="2000" step="0.1" value="1000" class="w-full">
-        <div class="text-xs text-slate-300">m = <span id="mVal">1000</span> kg</div>
+        <label class="badge"><input type="checkbox" id="mode3d"> 3D view</label>
+        <button class="ghost" id="resetBtn">Reset</button>
+        <button class="primary" id="pauseBtn">Pause</button>
       </div>
     </div>
-    <div id="banked" class="grid grid-cols-2 gap-3">
-      <div>
-        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Radius r (m)</label>
-        <input id="r" type="range" min="5" max="200" step="1" value="50" class="w-full">
-        <div class="text-xs text-slate-300">r = <span id="rVal">50</span> m</div>
-      </div>
-      <div>
-        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Speed v (m/s)</label>
-        <input id="v" type="range" min="0" max="70" step="0.5" value="20" class="w-full">
-        <div class="text-xs text-slate-300">v = <span id="vVal">20.0</span> m/s</div>
-      </div>
-      <div>
-        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Bank angle θ (°)</label>
-        <input id="theta" type="range" min="0" max="60" step="1" value="15" class="w-full">
-        <div class="text-xs text-slate-300">θ = <span id="thetaVal">15</span>°</div>
-      </div>
-      <div>
-        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Friction μ</label>
-        <input id="mu" type="range" min="0" max="1.0" step="0.01" value="0.30" class="w-full">
-        <div class="text-xs text-slate-300">μ = <span id="muVal">0.30</span></div>
-      </div>
-    </div>
-    <div id="conical" class="hidden grid grid-cols-2 gap-3">
-      <div>
-        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">String length l (m)</label>
-        <input id="l" type="range" min="0.2" max="5" step="0.01" value="1.00" class="w-full">
-        <div class="text-xs text-slate-300">l = <span id="lVal">1.00</span> m</div>
-      </div>
-      <div>
-        <label class="block text-xs uppercase tracking-wide text-slate-400 mb-1">Angle α (°)</label>
-        <input id="alpha" type="range" min="5" max="80" step="1" value="30" class="w-full">
-        <div class="text-xs text-slate-300">α = <span id="alphaVal">30</span>°</div>
-      </div>
-    </div>
+  </header>
 
-    <div class="text-xs text-slate-300 leading-6">
-      Centripetal: F_c = m v² / r. Banked with friction: safe speed range
-      v_min = √[ r g (sinθ − μ cosθ) / (cosθ + μ sinθ) ],  v_max = √[ r g (sinθ + μ cosθ) / (cosθ − μ sinθ) ].
-      Conical pendulum: T cosα = mg,  T sinα = m v² / r,  r = l sinα ⇒ v = √( r g tanα ).
-    </div>
-  </aside>
+  <div class="wrap">
+    <!-- Controls -->
+    <section class="card" id="controls">
+      <h2>Inputs</h2>
+      <div id="inputs"></div>
+      <div class="hr"></div>
+      <div class="grid2">
+        <label class="row"><span>Show vectors</span>
+          <span>
+            <label><input type="checkbox" id="showV" checked/> v</label>
+            <label style="margin-left:8px"><input type="checkbox" id="showA" checked/> a<sub>c</sub></label>
+            <label style="margin-left:8px"><input type="checkbox" id="showF"/> F</label>
+          </span>
+          <span></span>
+        </label>
+        <label class="row"><span>Trail</span>
+          <input type="range" id="trail" min="0" max="1" step="0.01" value="0.5"/>
+          <span class="value mono" id="trailVal">0.50</span></label>
+        <label class="row"><span>Time scale</span>
+          <input type="range" id="timeScale" min="0.05" max="2" step="0.01" value="1"/>
+          <span class="value mono" id="timeScaleVal">1.00×</span></label>
+        <label class="row"><span>g</span>
+          <input type="number" id="g" step="0.1" value="9.81"/>
+          <span class="hint">m·s⁻²</span></label>
+      </div>
 
-  <section class="section p-3 grid gap-3">
-    <canvas id="scene" width="1000" height="380" class="w-full rounded-md bg-slate-900 border border-white/10"></canvas>
-    <div id="readouts" class="text-sm font-mono px-2"></div>
-  </section>
-</main>
+      <details style="margin-top:8px">
+        <summary>Presets</summary>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button class="ghost" data-preset="ucm_fast">UCM — r=2 m, v=6 m/s</button>
+          <button class="ghost" data-preset="loop_keep">Loop — just keeps contact</button>
+          <button class="ghost" data-preset="banked_noFric">Banked — no friction ideal</button>
+          <button class="ghost" data-preset="conical_demo">Conical — L=1.2 m, ω=3 rad/s</button>
+        </div>
+      </details>
+
+      <div class="hr"></div>
+      <h2>Canvas Controls</h2>
+      <div class="toolbar">
+        <label>Zoom <input type="range" id="zoom" min="0.3" max="2.5" step="0.01" value="1"></label>
+        <button class="ghost" id="panReset">Reset pan</button>
+        <span class="tiny muted">Tip: drag canvas to pan</span>
+      </div>
+
+      <div class="hr"></div>
+      <h2>Data Logging</h2>
+      <div class="toolbar">
+        <button class="primary" id="logStart">Start log</button>
+        <button class="ghost" id="logStop">Stop</button>
+        <button class="ghost" id="logExport">Export CSV</button>
+        <span id="logStatus" class="tiny muted">idle</span>
+      </div>
+    </section>
+
+    <!-- Visualiser -->
+    <section class="card">
+      <h2>Visualiser</h2>
+      <div class="stage"><canvas id="view" width="1400" height="900" aria-label="circular-motion-canvas"></canvas></div>
+      <div class="legend">
+        <span class="pill"><span class="dot" style="background:#c0e5ff"></span> object</span>
+        <span class="pill"><span class="dot" style="background:#8bd3ff"></span> path</span>
+        <span class="pill"><span class="dot" style="background:#9af5d5"></span> v</span>
+        <span class="pill"><span class="dot" style="background:#ffd38b"></span> a<sub>c</sub></span>
+        <span class="pill"><span class="dot" style="background:#ff8ea1"></span> F (net/tension)</span>
+      </div>
+    </section>
+
+    <!-- Right side: Live results + Forces + Quiz -->
+    <section class="card">
+      <h2>Live Results</h2>
+      <div class="kpi" id="live"></div>
+
+      <div class="hr"></div>
+      <h2>Forces Breakdown</h2>
+      <div class="forces tiny" id="forces"></div>
+
+      <div class="hr"></div>
+      <details open>
+        <summary>Key formulas (A‑Level)</summary>
+        <div class="hint" style="margin-top:8px">
+          <ul>
+            <li>Speed–radius–omega: <span class="mono">v = ω r</span>; Period: <span class="mono">T = 2π/ω</span></li>
+            <li>Centripetal acceleration: <span class="mono">a_c = v²/r = ω² r</span></li>
+            <li>Centripetal force: <span class="mono">F_c = m v² / r = m ω² r</span></li>
+            <li>Vertical loop: <span class="mono">v(θ)² = v₀² − 2 g r (1 − cosθ)</span>; contact if <span class="mono">v_top² ≥ g r</span> ⇒ <span class="mono">v₀ ≥ √(5 g r)</span></li>
+            <li>Banked (μ=0): <span class="mono">tanα = v²/(r g)</span>. With friction μ: speed band shown.</li>
+            <li>Conical: <span class="mono">ω² = g/(L cosθ), r=L sinθ, T = m g / cosθ</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <div class="hr"></div>
+      <h2>Guided Quiz</h2>
+      <div id="quizBox" class="tiny">
+        <div id="quizQ" style="margin-bottom:6px"></div>
+        <div class="toolbar">
+          <input type="text" id="quizAns" placeholder="Your answer (number)">
+          <button class="primary" id="quizCheck">Check</button>
+          <button class="ghost" id="quizNew">New Question</button>
+          <span id="quizFeedback" class="tiny"></span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
 
 <script>
-const C=document.getElementById('scene'); const ctx=C.getContext('2d');
-const out=document.getElementById('readouts');
-const g=9.81;
-const st = { mode:'banked', m:1000, r:50, v:20, theta:15, mu:0.3, l:1.0, alpha:30 };
-const ids=s=>document.getElementById(s);
+(function(){
+  const $ = sel => document.querySelector(sel);
+  const view = $('#view');
+  const ctx = view.getContext('2d');
 
-function sync(){
-  ids('mVal').textContent = st.m.toFixed(0);
-  ids('rVal').textContent = st.r.toFixed(0);
-  ids('vVal').textContent = st.v.toFixed(1);
-  ids('thetaVal').textContent = st.theta.toFixed(0);
-  ids('muVal').textContent = st.mu.toFixed(2);
-  ids('lVal').textContent = st.l.toFixed(2);
-  ids('alphaVal').textContent = st.alpha.toFixed(0);
-}
-ids('mode').addEventListener('change', e=>{
-  st.mode=e.target.value;
-  document.getElementById('banked').classList.toggle('hidden', st.mode!=='banked');
-  document.getElementById('conical').classList.toggle('hidden', st.mode!=='conical');
-  draw();
-});
-['m','r','v','theta','mu','l','alpha'].forEach(id=> ids(id).addEventListener('input', e=>{ st[id]=+e.target.value; sync(); draw(); }));
-sync();
+  // Camera (zoom & pan)
+  const camera = { scale:1, offX:0, offY:0, dragging:false, lastX:0, lastY:0 };
 
-function bankedSafety(){
-  const th = st.theta*Math.PI/180;
-  const mu = st.mu;
-  const numMax = st.r*g*(Math.sin(th)+mu*Math.cos(th));
-  const denMax = (Math.cos(th)-mu*Math.sin(th));
-  const numMin = st.r*g*(Math.sin(th)-mu*Math.cos(th));
-  const denMin = (Math.cos(th)+mu*Math.sin(th));
-  let vmax = denMax>0 ? Math.sqrt(Math.max(0,numMax/denMax)) : Infinity;
-  let vmin = (numMin>0 && denMin>0) ? Math.sqrt(numMin/denMin) : 0;
-  return {vmin, vmax};
-}
+  // Global state
+  const state = {
+    mode:'ucm',
+    g: 9.81,
+    timeScale:1,
+    showV:true, showA:true, showF:false,
+    trail:0.5,
+    paused:false,
+    threeD:false,
+    // scenario params
+    ucm:{ m:1, r:2, v:6 },
+    loop:{ m:1, r:3, v0:16 },
+    banked:{ m:1000, r:50, v:20, alpha:20*Math.PI/180, mu:0.3 },
+    conical:{ m:0.25, L:1.2, omega:3 }
+  }
 
-let t=0;
-function draw(){
-  const W=C.width,H=C.height;
-  ctx.fillStyle="#0f172a"; ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle="rgba(148,163,184,.25)"; ctx.strokeRect(40,40,W-80,H-80);
+  // Logging
+  let logging=false, logData=[], logStartTime=0;
+  function logTick(t, extras) {
+    if(!logging) return;
+    logData.push({t:(t-logStartTime)/1000, ...extras});
+    $('#logStatus').textContent = 'logging… ' + logData.length + ' rows';
+  }
+  function exportCSV(){
+    if(!logData.length){ alert('No data logged yet.'); return; }
+    const keys = Object.keys(logData[0]);
+    const rows = [keys.join(',')].concat(logData.map(r=> keys.map(k=> r[k]).join(',')));
+    const blob = new Blob([rows.join('\\n')], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'circular_motion_log.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
 
-  if (st.mode==='banked'){
-    const th=st.theta*Math.PI/180;
-    // road
-    ctx.save(); ctx.translate(W/2,H/2+40); ctx.rotate(-th);
-    ctx.fillStyle="#475569"; ctx.fillRect(-400,-20,800,40);
-    // car
-    const x = -200 + (t%10)/10 * 400;
-    ctx.fillStyle="#60a5fa"; ctx.fillRect(x-20,-18,40,18);
-    // forces at car center
-    const cx=x, cy=-18;
+  // UI helpers
+  function format(x,unit){
+    if(!isFinite(x)) return '—';
+    const s = (Math.abs(x)>=1000 || Math.abs(x)<0.01) ? x.toExponential(2) : x.toFixed(3);
+    return unit? `${s} ${unit}` : s;
+  }
+
+  function inputsFor(mode){
+    const g = `
+      <label class='row'><span>Mass m</span>
+        <input type='number' id='m' step='0.01' value='${state[mode].m}'/>
+        <span class='hint'>kg</span></label>`;
+    if(mode==='ucm'){
+      return g+
+      `<label class='row'><span>Radius r</span><input type='number' id='r' step='0.01' value='${state.ucm.r}'/><span class='hint'>m</span></label>
+       <label class='row'><span>Speed v</span><input type='number' id='v' step='0.01' value='${state.ucm.v}'/><span class='hint'>m·s⁻¹</span></label>`;
+    }
+    if(mode==='loop'){
+      return g+
+      `<label class='row'><span>Radius r</span><input type='number' id='r' step='0.01' value='${state.loop.r}'/><span class='hint'>m</span></label>
+       <label class='row'><span>v₀ at bottom</span><input type='number' id='v0' step='0.01' value='${state.loop.v0}'/><span class='hint'>m·s⁻¹</span></label>`;
+    }
+    if(mode==='banked'){
+      return g+
+      `<label class='row'><span>Radius r</span><input type='number' id='r' step='0.01' value='${state.banked.r}'/><span class='hint'>m</span></label>
+       <label class='row'><span>Speed v</span><input type='number' id='v' step='0.01' value='${state.banked.v}'/><span class='hint'>m·s⁻¹</span></label>
+       <label class='row'><span>Bank α</span><input type='number' id='alpha' step='0.1' value='${(state.banked.alpha*180/Math.PI).toFixed(1)}'/><span class='hint'>deg</span></label>
+       <label class='row'><span>Friction μ</span><input type='number' id='mu' step='0.01' value='${state.banked.mu}'/><span class='hint'>—</span></label>`;
+    }
+    if(mode==='conical'){
+      return g+
+      `<label class='row'><span>String L</span><input type='number' id='L' step='0.01' value='${state.conical.L}'/><span class='hint'>m</span></label>
+       <label class='row'><span>Angular speed ω</span><input type='number' id='omega' step='0.01' value='${state.conical.omega}'/><span class='hint'>rad·s⁻¹</span></label>`;
+    }
+  }
+
+  function renderInputs(){
+    $('#inputs').innerHTML = inputsFor(state.mode);
+  }
+
+  // Scenario dynamics
+  let theta = 0; // angle from +x, CCW
+
+  function step(dt){
+    const g = state.g;
+    if(state.mode==='ucm'){
+      const {r,v} = state.ucm;
+      const omega = v/Math.max(1e-6,r);
+      theta += omega*dt;
+    }
+    else if(state.mode==='loop'){
+      const {r,v0} = state.loop;
+      const v2 = Math.max(0, v0*v0 - 2*g*r*(1 - Math.cos(theta)));
+      const v = Math.sqrt(v2);
+      const omega = (r>0)? v/r : 0;
+      theta += omega*dt;
+    }
+    else if(state.mode==='banked'){
+      const {r,v} = state.banked;
+      const omega = v/Math.max(1e-6,r);
+      theta += omega*dt;
+    }
+    else if(state.mode==='conical'){
+      const {omega} = state.conical;
+      theta += omega*dt;
+    }
+  }
+
+  // 3D helper: simple perspective transform for a circle -> ellipse
+  function drawRing(x,y,r,tilt){
+    // tilt in radians, 0 = top-down, pi/2 = edge-on
+    const ry = r*Math.cos(tilt);
+    ctx.beginPath(); ctx.ellipse(x,y,r,ry,0,0,Math.PI*2); ctx.stroke();
+  }
+
+  function draw(){
+    const w = view.width, h = view.height;
+    const cx = w*0.5 + camera.offX, cy = h*0.55 + camera.offY; // stage center
+
+    // trail fade
+    ctx.fillStyle = `rgba(11,16,32,${1 - state.trail})`;
+    ctx.fillRect(0,0,w,h);
+
+    ctx.save();
     ctx.translate(cx,cy);
-    ctx.rotate(th);
-    // back to world orientation for arrows
-    ctx.rotate(0);
-    ctx.fillStyle="#e2e8f0"; ctx.font="12px ui-sans-serif";
-    function arrow(ax,ay,dx,dy,col){ ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax+dx, ay+dy); ctx.stroke(); }
-    // weight
-    arrow(0,0, 0, 60, "#f87171");
-    // normal
-    arrow(0,0, 0, -70, "#34d399");
-    // friction (approx direction)
-    arrow(0,0, 70, 0, "#fbbf24");
+    ctx.scale(camera.scale, camera.scale);
+
+    // Determine geometry per mode
+    let r=2, v=0, m=1, omega=0, ac=0, Fc=0, pos={x:0,y:0},
+        tension=null, alpha=null, mu=null, thetaCone=null, L=null, keep=null;
+
+    // physics derivations
+    if(state.mode==='ucm'){
+      ({r} = state.ucm); ({v} = state.ucm); ({m}=state.ucm);
+      omega = v/Math.max(1e-6,r); ac = v*v/Math.max(1e-6,r); Fc = m*ac; pos.x = r*Math.cos(theta); pos.y = r*Math.sin(theta);
+    }
+    if(state.mode==='loop'){
+      ({r} = state.loop); ({m} = state.loop);
+      const v2 = Math.max(0, state.loop.v0*state.loop.v0 - 2*state.g*r*(1 - Math.cos(theta)));
+      v = Math.sqrt(v2); omega = (r>0)? v/r:0; ac = (r>0)? v2/r:0; Fc = m*ac;
+      pos.x = r*Math.cos(theta); pos.y = r*Math.sin(theta);
+      tension = m*v2/Math.max(1e-6,r) + m*state.g*Math.cos(theta);
+      keep = v2 >= state.g*r; // margin for top contact
+    }
+    if(state.mode==='banked'){
+      ({r} = state.banked); ({v} = state.banked); ({m}=state.banked); alpha = state.banked.alpha; mu=state.banked.mu;
+      omega = v/Math.max(1e-6,r); ac = v*v/Math.max(1e-6,r); Fc = m*ac; pos.x = r*Math.cos(theta); pos.y = r*Math.sin(theta);
+    }
+    if(state.mode==='conical'){
+      ({m} = state.conical); L = state.conical.L; const omegaIn = state.conical.omega; const g = state.g;
+      const cosT = g/(omegaIn*omegaIn*Math.max(1e-6,L));
+      thetaCone = (cosT<=1)? Math.acos(Math.max(-1,Math.min(1,cosT))) : Math.acos(0.999999);
+      r = L*Math.sin(thetaCone);
+      omega = omegaIn; v = omega*r; ac = v*v/Math.max(1e-6,r); Fc = m*ac;
+      pos.x = r*Math.cos(theta); pos.y = r*Math.sin(theta);
+      tension = m*g/Math.cos(thetaCone);
+    }
+
+    // scale metres to pixels (base scale, independent of camera.scale)
+    const scale = 90;
+
+    // path (2D or faux-3D)
+    ctx.lineWidth = 1.6/camera.scale;
+    ctx.strokeStyle = '#8bd3ff';
+    if(state.threeD){
+      if(state.mode==='loop'){
+        // show a tilted loop
+        const tilt = Math.PI/6;
+        drawRing(0,0,r*scale, tilt);
+      }else if(state.mode==='conical'){
+        // draw cone guide
+        const tilt = Math.PI/6;
+        ctx.strokeStyle = 'rgba(154,245,213,.5)';
+        drawRing(0,0,(L||1)*scale, tilt);
+        ctx.strokeStyle = '#8bd3ff';
+        drawRing(0,0,r*scale, tilt);
+      }else{
+        const tilt = Math.PI/6;
+        drawRing(0,0,r*scale, tilt);
+      }
+    }else{
+      ctx.beginPath(); ctx.arc(0,0,r*scale,0,Math.PI*2); ctx.stroke();
+    }
+
+    // axes
+    ctx.strokeStyle = 'rgba(200,220,255,.15)'; ctx.lineWidth=1/camera.scale;
+    ctx.beginPath(); ctx.moveTo(-r*scale-80,0); ctx.lineTo(r*scale+80,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,-r*scale-80); ctx.lineTo(0,r*scale+80); ctx.stroke();
+
+    // object
+    const px = pos.x*scale, py = pos.y*scale;
+    ctx.fillStyle = '#c0e5ff'; ctx.beginPath(); ctx.arc(px,py,8/camera.scale,0,Math.PI*2); ctx.fill();
+
+    // local frames
+    const ex = Math.cos(theta), ey = Math.sin(theta);
+    const tx = -ey, ty = ex; // tangent unit
+
+    function arrow(x,y,vx,vy,clr){
+      const L = Math.hypot(vx,vy); if(L<1e-9) return;
+      const ux=vx/L, uy=vy/L; const head=10/camera.scale, w=5/camera.scale;
+      ctx.strokeStyle = clr; ctx.fillStyle = clr; ctx.lineWidth = 2.0/camera.scale;
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+vx,y+vy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+vx,y+vy); ctx.lineTo(x+vx-head*ux - w*uy, y+vy-head*uy + w*ux); ctx.lineTo(x+vx-head*ux + w*uy, y+vy-head*uy - w*ux); ctx.closePath(); ctx.fill();
+    }
+
+    // Vectors
+    if(state.showV){ arrow(px,py, (v*tx)*18, (v*ty)*18, '#9af5d5'); }
+    if(state.showA){ arrow(px,py, (-ac*ex)*6, (-ac*ey)*6, '#ffd38b'); }
+    if(state.showF){
+      const F = (tension!=null)? tension : Fc;
+      arrow(px,py, (-F*ex)*0.08, (-F*ey)*0.08, '#ff8ea1');
+    }
+
+    // centre
+    ctx.fillStyle = 'rgba(160,200,255,.6)'; ctx.beginPath(); ctx.arc(0,0,3/camera.scale,0,Math.PI*2); ctx.fill();
+
     ctx.restore();
 
-    const {vmin, vmax} = bankedSafety();
-    const safe = (st.v>=vmin && st.v<=vmax);
-    out.textContent = `Banked curve: v=${st.v.toFixed(1)} m/s   safe range ≈ [${isFinite(vmin)?vmin.toFixed(1):"0"}, ${isFinite(vmax)?vmax.toFixed(1):"∞"}] m/s   ${safe?"OK (no slip)":"⚠ may slip"}`;
-  } else {
-    // conical pendulum
-    const alpha=st.alpha*Math.PI/180;
-    const r = st.l*Math.sin(alpha);
-    const v = Math.sqrt(r*g*Math.tan(alpha));
-    // draw
-    const cx=W/2, cy=H/2-60;
-    ctx.strokeStyle="rgba(148,163,184,.5)"; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx + r*120, cy + st.l*120*Math.cos(alpha)); ctx.stroke();
-    ctx.fillStyle="#60a5fa"; ctx.beginPath(); ctx.arc(cx + r*120, cy + st.l*120*Math.cos(alpha), 8, 0, Math.PI*2); ctx.fill();
-    // circle path
-    ctx.strokeStyle="rgba(148,163,184,.3)"; ctx.beginPath(); ctx.arc(cx, cy + st.l*120*Math.cos(alpha), r*120, 0, Math.PI*2); ctx.stroke();
-    out.textContent = `Conical pendulum: r=${r.toFixed(2)} m   required v≈${v.toFixed(2)} m/s   Tension T≈${(st.m*g/Math.cos(alpha)).toFixed(1)} N`;
+    // KPIs
+    const live = $('#live');
+    function kv(name,val,unit){ return `<div class='box'><div class='hint'>${name}</div><div class='value mono'>${format(val,unit)}</div></div>`}
+
+    if(state.mode==='ucm'){
+      const {r,v,m}=state.ucm; const omega=v/Math.max(1e-6,r); const ac=v*v/Math.max(1e-6,r); const Fc=m*ac;
+      live.innerHTML = kv('v',v,'m·s⁻¹')+kv('r',r,'m')+kv('ω',omega,'rad·s⁻¹')+kv('T',2*Math.PI/omega,'s')+kv('a_c',ac,'m·s⁻²')+kv('F_c',Fc,'N');
+      fillForcesUCM(m,r,v);
+      logTick(performance.now(), {mode:'ucm', r, v, omega, ac, Fc});
+    }
+    if(state.mode==='loop'){
+      const {r,m,v0}=state.loop; const v2 = Math.max(0, v0*v0 - 2*state.g*r*(1 - Math.cos(theta))); const v=Math.sqrt(v2); const omega=(r>0)?v/r:0; const ac=(r>0)?v2/r:0; const T= (omega? 2*Math.PI/omega: Infinity); const tension = m*v2/Math.max(1e-6,r) + m*state.g*Math.cos(theta); const keep = v2 >= state.g*r; 
+      live.innerHTML = kv('v (inst)',v,'m·s⁻¹')+kv('v₀ bottom',v0,'m·s⁻¹')+kv('r',r,'m')+kv('T (inst)',T,'s')+kv('a_c',ac,'m·s⁻²')+kv('Tension',tension,'N') + `<div class='box'><div class='hint'>Contact at top?</div><div class='value mono ${keep?'ok':'warn'}'>${keep?'Yes':'No'}</div></div>`;
+      fillForcesLoop(m,r,v,theta,tension);
+      logTick(performance.now(), {mode:'loop', r, v, v0, omega, ac, tension, theta});
+    }
+    if(state.mode==='banked'){
+      const {r,v,alpha,mu,m}=state.banked; const omega=v/Math.max(1e-6,r); const ac=v*v/Math.max(1e-6,r); const Fc=m*ac; const tanReq=v*v/(r*state.g); const alphaReq=Math.atan(tanReq); const t=Math.tan(alpha); const vMin=(t-mu>0)? Math.sqrt(r*state.g*(t-mu)/(1+mu*t)): NaN; const vMax = (1-mu*t>0)? Math.sqrt(Math.max(0, r*state.g*(t+mu)/(1-mu*t))): NaN;
+      live.innerHTML = kv('v',v,'m·s⁻¹')+kv('r',r,'m')+kv('α',alpha*180/Math.PI,'deg')+kv('μ',mu,'—')+kv('α need (μ=0)',alphaReq*180/Math.PI,'deg')+kv('v_min',vMin,'m·s⁻¹')+kv('v_max',vMax,'m·s⁻¹');
+      fillForcesBanked(m,r,v,alpha,mu);
+      logTick(performance.now(), {mode:'banked', r, v, alpha, mu, omega, ac, Fc});
+    }
+    if(state.mode==='conical'){
+      const {m,L,omega}=state.conical; const cosT = state.g/(omega*omega*Math.max(1e-6,L)); const thetaCone = (cosT<=1)? Math.acos(Math.max(-1,Math.min(1,cosT))): NaN; const r = isFinite(thetaCone)? L*Math.sin(thetaCone): NaN; const v = omega*r; const ac = v*v/Math.max(1e-6,r); const T = m*state.g/Math.cos(thetaCone);
+      live.innerHTML = kv('ω',omega,'rad·s⁻¹')+kv('L',L,'m')+kv('θ',thetaCone*180/Math.PI,'deg')+kv('r',r,'m')+kv('v',v,'m·s⁻¹')+kv('Tension',T,'N');
+      fillForcesConical(m,L,thetaCone,T);
+      logTick(performance.now(), {mode:'conical', L, omega, r, v, ac, T, thetaCone});
+    }
   }
-}
-function loop(){ t += st.v/200; draw(); requestAnimationFrame(loop); }
-loop();
+
+  // Forces breakdown fillers
+  function table(rows){
+    const th = '<tr><th>Quantity</th><th>Radial (inward +)</th><th>Tangential (+CCW)</th><th>Vertical (+up)</th></tr>';
+    return `<table>${th}${rows.map(r=>`<tr><td>${r[0]}</td><td class='mono'>${r[1]}</td><td class='mono'>${r[2]}</td><td class='mono'>${r[3]}</td></tr>`).join('')}</table>`;
+  }
+  function fillForcesUCM(m,r,v){
+    const ac = v*v/Math.max(1e-6,r), Fc = m*ac;
+    const rows = [
+      ['Required centripetal F_c', format(Fc,'N'), '0', '0'],
+      ['Weight (mg)', format(-m*state.g,'N'), '0', format(-m*state.g,'N')],
+      ['Normal/Tension (inward)', format(Fc,'N'), '0', '0']
+    ];
+    $('#forces').innerHTML = table(rows);
+  }
+  function fillForcesLoop(m,r,v,theta,tension){
+    const ac = v*v/Math.max(1e-6,r);
+    const Fr = m*ac; // required inward
+    const Wrad = -m*state.g*Math.cos(theta); // inward positive
+    const Wtan = -m*state.g*Math.sin(theta); // +CCW tangential
+    const rows = [
+      ['Required centripetal F_c', format(Fr,'N'), '0', '—'],
+      ['Weight components', format(Wrad,'N'), format(Wtan,'N'), format(-m*state.g,'N')],
+      ['Track tension/normal', format(tension,'N'), '0', '—']
+    ];
+    $('#forces').innerHTML = table(rows);
+  }
+  function fillForcesBanked(m,r,v,alpha,mu){
+    const ac = v*v/Math.max(1e-6,r);
+    const Fr = m*ac;
+    // Decompose normal N into components: N cosα = mg + (friction vertical part); N sinα provides centripetal plus friction radial part depending on slip
+    // For breakdown, show ideal μ=0 resolution plus note μ effect.
+    const N_ideal = m*state.g/Math.cos(alpha);
+    const rows = [
+      ['Required centripetal F_c', format(Fr,'N'), '0', '—'],
+      ['Weight (mg)', format(0,'N'), '0', format(-m*state.g,'N')],
+      ['Normal (μ=0)', format(N_ideal*Math.sin(alpha),'N'), '0', format(N_ideal*Math.cos(alpha),'N')],
+      ['Friction (μ)', '±', '0', '±'] // sign depends on too slow/fast
+    ];
+    $('#forces').innerHTML = table(rows) + `<div class="tiny muted">Note: friction direction up/down the slope depends on whether speed is below/above the no‑friction design speed.</div>`;
+  }
+  function fillForcesConical(m,L,theta,T){
+    const Tr = T*Math.sin(theta); // inward
+    const Tv = T*Math.cos(theta); // up
+    const rows = [
+      ['Tension components', format(Tr,'N'), '0', format(Tv,'N')],
+      ['Weight (mg)', format(0,'N'), '0', format(-m*state.g,'N')],
+      ['Required centripetal F_c', format(m*(state.conical.omega**2)*(L*Math.sin(theta)),'N'), '0', '—']
+    ];
+    $('#forces').innerHTML = table(rows);
+  }
+
+  // Animation loop
+  let last=performance.now();
+  function loop(t){
+    const dt = Math.min(0.05, (t-last)/1000) * state.timeScale; last=t;
+    if(!state.paused) step(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // Input wiring
+  function rebind(){
+    $('#g').value = state.g; $('#g').oninput = e=> state.g = +e.target.value;
+    $('#trail').value = state.trail; $('#trailVal').textContent = (+state.trail).toFixed(2); $('#trail').oninput = e=>{ state.trail=+e.target.value; $('#trailVal').textContent = (+state.trail).toFixed(2); }
+    $('#timeScale').value = state.timeScale; $('#timeScaleVal').textContent = (+state.timeScale).toFixed(2)+'×'; $('#timeScale').oninput = e=>{ state.timeScale=+e.target.value; $('#timeScaleVal').textContent = (+state.timeScale).toFixed(2)+'×'; }
+    $('#showV').checked = state.showV; $('#showV').onchange = e=> state.showV = e.target.checked;
+    $('#showA').checked = state.showA; $('#showA').onchange = e=> state.showA = e.target.checked;
+    $('#showF').checked = state.showF; $('#showF').onchange = e=> state.showF = e.target.checked;
+    $('#mode3d').checked = state.threeD; $('#mode3d').onchange = e=> state.threeD = e.target.checked;
+
+    // zoom & pan
+    $('#zoom').value = camera.scale; $('#zoom').oninput = e=> camera.scale = +e.target.value;
+    $('#panReset').onclick = ()=> { camera.offX=0; camera.offY=0; camera.scale=1; $('#zoom').value=1; };
+
+    view.onmousedown = (ev)=>{ camera.dragging=true; camera.lastX=ev.clientX; camera.lastY=ev.clientY; };
+    window.onmouseup = ()=> camera.dragging=false;
+    window.onmousemove = (ev)=>{
+      if(!camera.dragging) return;
+      const dx = ev.clientX - camera.lastX;
+      const dy = ev.clientY - camera.lastY;
+      camera.offX += dx;
+      camera.offY += dy;
+      camera.lastX = ev.clientX; camera.lastY = ev.clientY;
+    };
+
+    if(state.mode==='ucm'){
+      $('#m').oninput = e=> state.ucm.m = +e.target.value;
+      $('#r').oninput = e=> state.ucm.r = Math.max(0.1,+e.target.value);
+      $('#v').oninput = e=> state.ucm.v = Math.max(0,+e.target.value);
+    }
+    if(state.mode==='loop'){
+      $('#m').oninput = e=> state.loop.m = +e.target.value;
+      $('#r').oninput = e=> state.loop.r = Math.max(0.1,+e.target.value);
+      $('#v0').oninput = e=> state.loop.v0 = Math.max(0,+e.target.value);
+    }
+    if(state.mode==='banked'){
+      $('#m').oninput = e=> state.banked.m = +e.target.value;
+      $('#r').oninput = e=> state.banked.r = Math.max(0.1,+e.target.value);
+      $('#v').oninput = e=> state.banked.v = Math.max(0,+e.target.value);
+      $('#alpha').oninput = e=> state.banked.alpha = (+e.target.value)*Math.PI/180;
+      $('#mu').oninput = e=> state.banked.mu = Math.max(0,+e.target.value);
+    }
+    if(state.mode==='conical'){
+      $('#m').oninput = e=> state.conical.m = +e.target.value;
+      $('#L').oninput = e=> state.conical.L = Math.max(0.05,+e.target.value);
+      $('#omega').oninput = e=> state.conical.omega = Math.max(0.01,+e.target.value);
+    }
+
+    // logging
+    $('#logStart').onclick = ()=>{ logging=true; logData=[]; logStartTime=performance.now(); $('#logStatus').textContent='logging… 0 rows'; };
+    $('#logStop').onclick = ()=>{ logging=false; $('#logStatus').textContent='stopped ('+logData.length+' rows)'; };
+    $('#logExport').onclick = exportCSV;
+
+    // quiz
+    $('#quizCheck').onclick = checkQuiz;
+    $('#quizNew').onclick = newQuiz;
+  }
+
+  function setMode(m){ state.mode=m; $('#scenario').value=m; renderInputs(); rebind(); newQuiz(); }
+
+  // Scenario switcher
+  $('#scenario').value = state.mode;
+  $('#scenario').onchange = e=>{ setMode(e.target.value); };
+
+  // Buttons
+  $('#resetBtn').onclick = ()=>{ /* reset angle and camera */ theta=0; camera.offX=0; camera.offY=0; camera.scale=1; $('#zoom').value=1; };
+  $('#pauseBtn').onclick = (e)=>{ state.paused = !state.paused; e.target.textContent = state.paused? 'Resume':'Pause'; };
+
+  // Presets
+  document.querySelectorAll('[data-preset]').forEach(b=> b.onclick = ()=>{
+    const p = b.getAttribute('data-preset');
+    if(p==='ucm_fast'){ setMode('ucm'); state.ucm={m:1,r:2,v:6}; }
+    if(p==='loop_keep'){ setMode('loop'); const r=3, g=state.g; const v0=Math.sqrt(5*g*r)+0.01; state.loop={m:1,r,v0}; }
+    if(p==='banked_noFric'){ setMode('banked'); state.banked={m:1000,r:50,v:22,alpha:Math.atan(22*22/(50*state.g)),mu:0}; }
+    if(p==='conical_demo'){ setMode('conical'); state.conical={m:0.25,L:1.2,omega:3}; }
+    renderInputs(); rebind();
+  });
+
+  // Quiz generation
+  let quiz = {text:'', ans:0, tol:0.02};
+  function newQuiz(){
+    const g = state.g;
+    if(state.mode==='ucm'){
+      const r = +(state.ucm.r.toFixed(2)), v = +(state.ucm.v.toFixed(2));
+      quiz.ans = (v*v/r); quiz.tol = Math.max(0.02, 0.02*quiz.ans);
+      quiz.text = `UCM: For r = ${r} m and v = ${v} m·s⁻¹, what is a_c (m·s⁻²)?`;
+    }else if(state.mode==='loop'){
+      const r = +(state.loop.r.toFixed(2));
+      const v0 = +(state.loop.v0.toFixed(2));
+      quiz.text = `Loop: Minimum v₀ at bottom to keep contact at top for r=${r} m is √(5 g r). Compute value (m·s⁻¹).`;
+      quiz.ans = Math.sqrt(5*g*r); quiz.tol = 0.03*quiz.ans;
+    }else if(state.mode==='banked'){
+      const r = +(state.banked.r.toFixed(1));
+      const v = +(state.banked.v.toFixed(1));
+      quiz.text = `Banked: For r=${r} m and v=${v} m·s⁻¹ (μ=0), what banking angle α (deg) satisfies tanα = v²/(rg)?`;
+      quiz.ans = Math.atan((v*v)/(r*g))*180/Math.PI; quiz.tol = 0.5;
+    }else{ // conical
+      const L = +(state.conical.L.toFixed(2));
+      const w = +(state.conical.omega.toFixed(2));
+      quiz.text = `Conical: For L=${L} m and ω=${w} rad·s⁻¹, what is θ (deg) with ω² = g/(L cosθ)?`;
+      const cosT = g/(w*w*L); quiz.ans = Math.acos(Math.min(1,Math.max(-1,cosT)))*180/Math.PI; quiz.tol = 0.5;
+    }
+    $('#quizQ').textContent = quiz.text;
+    $('#quizFeedback').textContent='';
+    $('#quizAns').value='';
+  }
+  function checkQuiz(){
+    const val = parseFloat($('#quizAns').value);
+    if(isNaN(val)){ $('#quizFeedback').textContent = 'Enter a number.'; return; }
+    const ok = Math.abs(val - quiz.ans) <= quiz.tol;
+    $('#quizFeedback').textContent = ok ? '✅ Correct!' : `❌ Not quite. Expected ≈ ${quiz.ans.toFixed(3)} (±${quiz.tol.toFixed(3)}).`;
+  }
+
+  // Initial mount
+  renderInputs(); rebind(); newQuiz();
+
+  // Resize handling: keep canvas crisp
+  function resize(){
+    const rect = view.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    view.width = Math.round(rect.width * ratio);
+    view.height = Math.round(rect.height * ratio);
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.scale(ratio, ratio);
+  }
+  const ro = new ResizeObserver(resize); ro.observe(view);
+  resize();
+})();
 </script>
 </body>
 </html>
